@@ -19,6 +19,16 @@ It's assumed your changelog will be output in **Markdown** format.
 cargo install unclog
 ```
 
+Or you can build from source:
+
+```bash
+git clone https://github.com/informalsystems/unclog
+cd unclog
+
+# Install to ~/.cargo/bin/
+cargo install --path .
+```
+
 ## Usage
 
 ### Example `.changelog` folder
