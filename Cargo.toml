@@ -1,0 +1,36 @@
+[package]
+name        = "unclog"
+version     = "0.1.0"
+authors     = ["Thane Thomson <thane@informal.systems>"]
+edition     = "2018"
+license     = "Apache-2.0"
+homepage    = "https://github.com/informalsystems/mkcl"
+repository  = "https://github.com/informalsystems/mkcl"
+readme      = "README.md"
+categories  = ["developer-tools"]
+keywords    = ["changelog", "developer tools", "markdown"]
+description = """
+    unclog allows you to build your changelog from a collection of independent
+    files. This helps prevent annoying and unnecessary merge conflicts when
+    collaborating on shared codebases.
+    """
+
+[[bin]]
+name = "unclog"
+path = "src/bin/cli.rs"
+required-features = ["cli"]
+
+[features]
+default = [ "cli" ]
+cli = ["simplelog", "structopt"]
+
+[dependencies]
+log = "0.4.14"
+semver = "1.0"
+thiserror = "1.0"
+
+simplelog = { version = "0.10", optional = true }
+structopt = { version = "0.3.21", optional = true }
+
+[dev-dependencies]
+env_logger = "0.8.3"

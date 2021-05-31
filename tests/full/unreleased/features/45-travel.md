@@ -1,0 +1,1 @@
+* Travel through space as a beneficial example
