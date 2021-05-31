@@ -6,6 +6,8 @@ Build your changelog from a structured collection of independent files in your
 project's `.changelog` folder. This helps avoid annoying merge conflicts when
 working on multiple PRs simultaneously.
 
+It's assumed your changelog will be output in **Markdown** format.
+
 ## Requirements
 
 * Rust v1.52.1+ with `cargo`
@@ -18,6 +20,33 @@ cargo install unclog
 ```
 
 ## Usage
+
+### Example `.changelog` folder
+
+An example layout for a project's `.changelog` folder is as follows:
+
+```
+.changelog/                - The project's .changelog folder, in the root of the repo.
+|__ unreleased/            - Changes to be released in the next version.
+|   |__ breaking-changes/  - "BREAKING CHANGES" section entries.
+|   |   |__ 890-block.md   - An entry in the "BREAKING CHANGES" section.
+|   |
+|   |__ bug-fixes/         - "BUG FIXES" section entries.
+|   |__ features/          - "FEATURES" section entries.
+|   |
+|   |__ summary.md         - A summary of the next release.
+|
+|__ v0.1.0/                - Changes released historically in v0.1.0.
+|   |__ breaking-changes/  - "BREAKING CHANGES" section entries for v0.1.0.
+|   |   |__ 467-api.md     - An entry in the "BREAKING CHANGES" section for v0.1.0.
+|   |   |__ 479-rpc.md     - Another entry in the "BREAKING CHANGES" section for v0.1.0.
+|   |
+|   |__ bug-fixes/         - "BUG FIXES" section entries for v0.1.0.
+|   |
+|   |__ summary.md         - A summary of release v0.1.0.
+|
+|__ epilogue.md            - Any content to be added to the end of the generated CHANGELOG.
+```
 
 ### CLI
 
