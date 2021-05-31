@@ -58,7 +58,12 @@ Once you've installed the `unclog` binary:
 unclog
 
 # Save the output as your new CHANGELOG.md file.
+# NOTE: All logging output goes to stderr.
 unclog > CHANGELOG.md
+
+# Increase output logging verbosity on stderr and build your `.changelog`
+# folder.
+unclog -v
 
 # Get help
 unclog --help
