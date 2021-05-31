@@ -13,7 +13,7 @@ struct Opt {
     #[structopt(short, long)]
     verbose: bool,
 
-    /// The path to the '.changelog' folder you want to build.
+    /// The path to the changelog folder you want to build.
     #[structopt(default_value = ".changelog")]
     path: String,
 }
