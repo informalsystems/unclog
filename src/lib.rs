@@ -5,7 +5,7 @@ mod error;
 
 pub use changelog::{
     ChangeSet, Changelog, Entry, Release, CHANGE_SET_ENTRY_EXT, CHANGE_SET_SUMMARY_FILENAME,
-    EPILOGUE_FILENAME, UNRELEASED_FOLDER,
+    EMPTY_CHANGELOG_MSG, EPILOGUE_FILENAME, UNRELEASED_FOLDER,
 };
 pub use error::Error;
 

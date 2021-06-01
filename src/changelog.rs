@@ -12,6 +12,7 @@ pub const UNRELEASED_FOLDER: &str = "unreleased";
 pub const EPILOGUE_FILENAME: &str = "epilogue.md";
 pub const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
 pub const CHANGE_SET_ENTRY_EXT: &str = "md";
+pub const EMPTY_CHANGELOG_MSG: &str = "Nothing to see here! Add some entries to get started.";
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
@@ -26,6 +27,13 @@ pub struct Changelog {
 }
 
 impl Changelog {
+    /// Checks whether this changelog is empty.
+    pub fn is_empty(&self) -> bool {
+        self.unreleased.as_ref().map_or(true, ChangeSet::is_empty)
+            && self.releases.iter().all(|r| r.changes.is_empty())
+            && self.epilogue.as_ref().map_or(true, String::is_empty)
+    }
+
     /// Initialize a new (empty) changelog in the given path.
     ///
     /// Creates the target folder if it doesn't exist, and optionally copies an
@@ -171,22 +179,26 @@ impl Changelog {
 
 impl fmt::Display for Changelog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "# CHANGELOG\n\n{}{}{}\n",
-            self.unreleased.as_ref().map_or_else(
-                || "".to_owned(),
-                |unreleased| format!("## Unreleased\n\n{}\n\n", unreleased)
-            ),
-            self.releases
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<String>>()
-                .join("\n\n"),
-            self.epilogue
-                .as_ref()
-                .map_or_else(|| "".to_owned(), Clone::clone)
-        )
+        if self.is_empty() {
+            write!(f, "# CHANGELOG\n\n{}\n", EMPTY_CHANGELOG_MSG)
+        } else {
+            write!(
+                f,
+                "# CHANGELOG\n\n{}{}{}\n",
+                self.unreleased.as_ref().map_or_else(
+                    || "".to_owned(),
+                    |unreleased| format!("## Unreleased\n\n{}\n\n", unreleased)
+                ),
+                self.releases
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<String>>()
+                    .join("\n\n"),
+                self.epilogue
+                    .as_ref()
+                    .map_or_else(|| "".to_owned(), Clone::clone)
+            )
+        }
     }
 }
 
@@ -240,6 +252,11 @@ pub struct ChangeSet {
 }
 
 impl ChangeSet {
+    /// Returns true if this change set has no entries associated it with.
+    pub fn is_empty(&self) -> bool {
+        self.sections.iter().fold(0, |acc, s| acc + s.entries.len()) == 0
+    }
+
     /// Attempt to read a single change set from the given directory.
     pub fn read_from_dir<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
