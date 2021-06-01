@@ -60,20 +60,32 @@ An example layout for a project's `.changelog` folder is as follows:
 
 ### CLI
 
-Once you've installed the `unclog` binary:
+#### Initializing a changelog
+
+```bash
+# Creates a ".changelog" folder in the current directory.
+unclog init
+
+# Creates a ".changelog" folder in the current directory, and also copies your
+# existing CHANGELOG.md into it as an epilogue (to be appended at the end of
+# the final changelog built by unclog).
+unclog init -e CHANGELOG.md
+```
+
+#### Building a changelog
 
 ```bash
 # Run from your project's directory to build your '.changelog' folder.
 # Builds your CHANGELOG.md and writes it to stdout.
-unclog
+unclog build
 
 # Save the output as your new CHANGELOG.md file.
 # NOTE: All logging output goes to stderr.
-unclog > CHANGELOG.md
+unclog build > CHANGELOG.md
 
 # Increase output logging verbosity on stderr and build your `.changelog`
 # folder.
-unclog -v
+unclog -v build
 
 # Get help
 unclog --help
