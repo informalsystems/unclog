@@ -187,7 +187,13 @@ impl fmt::Display for Changelog {
                 "# CHANGELOG\n\n{}{}{}\n",
                 self.unreleased.as_ref().map_or_else(
                     || "".to_owned(),
-                    |unreleased| format!("## Unreleased\n\n{}\n\n", unreleased)
+                    |unreleased| {
+                        if unreleased.is_empty() {
+                            "".to_owned()
+                        } else {
+                            format!("## Unreleased\n\n{}\n\n", unreleased)
+                        }
+                    }
                 ),
                 self.releases
                     .iter()
@@ -252,9 +258,11 @@ pub struct ChangeSet {
 }
 
 impl ChangeSet {
-    /// Returns true if this change set has no entries associated it with.
+    /// Returns true if this change set has no summary and no entries
+    /// associated with it.
     pub fn is_empty(&self) -> bool {
-        self.sections.iter().fold(0, |acc, s| acc + s.entries.len()) == 0
+        self.summary.as_ref().map_or(true, String::is_empty)
+            && self.sections.iter().fold(0, |acc, s| acc + s.entries.len()) == 0
     }
 
     /// Attempt to read a single change set from the given directory.

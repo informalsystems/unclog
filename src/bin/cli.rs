@@ -121,7 +121,7 @@ fn main() {
 
 fn build_changelog<P: AsRef<Path>>(path: P) -> Result<()> {
     let changelog = Changelog::read_from_dir(path)?;
-    println!("{}", changelog);
+    print!("{}", changelog);
     log::info!("Success!");
     Ok(())
 }
