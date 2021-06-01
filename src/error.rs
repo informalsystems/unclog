@@ -15,6 +15,8 @@ pub enum Error {
     CannotObtainName(String),
     #[error("cannot extract version")]
     CannotExtractVersion(String),
+    #[error("the directory already exists: {0}")]
+    DirExists(String),
     #[error("invalid semantic version")]
     InvalidSemanticVersion(#[from] semver::Error),
     #[error("expected entry ID to start with a number, but got: \"{0}\"")]

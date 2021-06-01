@@ -33,6 +33,15 @@ enum Command {
         #[structopt(default_value = ".changelog")]
         path: PathBuf,
     },
+    /// Release any unreleased features.
+    Release {
+        /// The version string to use for the new release (e.g. "v0.1.0").
+        version: String,
+
+        /// The path to the changelog folder.
+        #[structopt(default_value = ".changelog")]
+        path: PathBuf,
+    },
 }
 
 fn main() {
@@ -54,7 +63,8 @@ fn main() {
         Command::Init {
             epilogue_path,
             path,
-        } => init_changelog(path, epilogue_path),
+        } => Changelog::init_dir(path, epilogue_path),
+        Command::Release { version, path } => Changelog::prepare_release_dir(path, version),
     };
     if let Err(e) = result {
         log::error!("Failed with error: {}", e);
@@ -66,8 +76,4 @@ fn build_changelog<P: AsRef<Path>>(path: P) -> Result<()> {
     println!("{}", changelog);
     log::info!("Success!");
     Ok(())
-}
-
-fn init_changelog<P: AsRef<Path>, E: AsRef<Path>>(path: P, epilogue_path: Option<E>) -> Result<()> {
-    Changelog::init_dir(path, epilogue_path)
 }

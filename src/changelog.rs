@@ -36,13 +36,8 @@ impl Changelog {
     ) -> Result<()> {
         let path = path.as_ref();
         // Ensure the desired path exists.
-        if fs::metadata(path).is_err() {
-            fs::create_dir(path)?;
-            info!("Created directory: {}", path_to_str(path));
-        }
-        if !fs::metadata(path)?.is_dir() {
-            return Err(Error::ExpectedDir(path_to_str(path)));
-        }
+        ensure_dir(path)?;
+
         // Optionally copy an epilogue into the target path.
         let epilogue_path = epilogue_path.as_ref();
         if let Some(ep) = epilogue_path {
@@ -54,18 +49,8 @@ impl Changelog {
                 path_to_str(&new_epilogue_path),
             );
         }
-        // Ensure we at least have an unreleased directory with a .gitkeep file.
-        let unreleased_dir = path.join("unreleased");
-        if fs::metadata(&unreleased_dir).is_err() {
-            fs::create_dir(&unreleased_dir)?;
-            info!("Created directory: {}", path_to_str(&unreleased_dir));
-        }
-        if !fs::metadata(&unreleased_dir)?.is_dir() {
-            return Err(Error::ExpectedDir(path_to_str(&unreleased_dir)));
-        }
-        let unreleased_gitkeep = unreleased_dir.join(".gitkeep");
-        fs::write(&unreleased_gitkeep, "")?;
-        debug!("Wrote {}", path_to_str(&unreleased_gitkeep));
+        // We want an empty unreleased directory with a .gitkeep file
+        Self::init_empty_unreleased_dir(path)?;
 
         info!("Success!");
         Ok(())
@@ -102,6 +87,46 @@ impl Changelog {
             releases,
             epilogue,
         })
+    }
+
+    /// Moves the `unreleased` folder from our changelog to a directory whose
+    /// name is the given version.
+    pub fn prepare_release_dir<P: AsRef<Path>, S: AsRef<str>>(path: P, version: S) -> Result<()> {
+        let path = path.as_ref();
+        let version = version.as_ref();
+
+        // Validate the version
+        let _ = semver::Version::parse(&extract_release_version(version)?)?;
+
+        let version_path = path.join(version);
+        // The target version path must not yet exist
+        if fs::metadata(&version_path).is_ok() {
+            return Err(Error::DirExists(path_to_str(&version_path)));
+        }
+
+        let unreleased_path = path.join(UNRELEASED_FOLDER);
+        // The unreleased folder must exist
+        if fs::metadata(&unreleased_path).is_err() {
+            return Err(Error::ExpectedDir(path_to_str(&unreleased_path)));
+        }
+
+        fs::rename(&unreleased_path, &version_path)?;
+        info!(
+            "Moved {} to {}",
+            path_to_str(&unreleased_path),
+            path_to_str(&version_path)
+        );
+
+        Self::init_empty_unreleased_dir(path)
+    }
+
+    fn init_empty_unreleased_dir(path: &Path) -> Result<()> {
+        let unreleased_dir = path.join(UNRELEASED_FOLDER);
+        ensure_dir(&unreleased_dir)?;
+        let unreleased_gitkeep = unreleased_dir.join(".gitkeep");
+        fs::write(&unreleased_gitkeep, "")?;
+        debug!("Wrote {}", path_to_str(&unreleased_gitkeep));
+        Ok(())
     }
 }
 
@@ -368,6 +393,17 @@ fn change_set_entry_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
     } else {
         None
     }
+}
+
+fn ensure_dir(path: &Path) -> Result<()> {
+    if fs::metadata(path).is_err() {
+        fs::create_dir(path)?;
+        info!("Created directory: {}", path_to_str(path));
+    }
+    if !fs::metadata(path)?.is_dir() {
+        return Err(Error::ExpectedDir(path_to_str(path)));
+    }
+    Ok(())
 }
 
 fn trim_newlines(s: &str) -> &str {
