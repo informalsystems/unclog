@@ -8,10 +8,10 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt, fs};
 
-const UNRELEASED_FOLDER: &str = "unreleased";
-const EPILOGUE_FILENAME: &str = "epilogue.md";
-const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
-const CHANGE_SET_ENTRY_EXT: &str = "md";
+pub const UNRELEASED_FOLDER: &str = "unreleased";
+pub const EPILOGUE_FILENAME: &str = "epilogue.md";
+pub const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
+pub const CHANGE_SET_ENTRY_EXT: &str = "md";
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
@@ -87,6 +87,45 @@ impl Changelog {
             releases,
             epilogue,
         })
+    }
+
+    /// Adds a changelog entry with the given ID to the specified section in
+    /// the `unreleased` folder.
+    pub fn add_unreleased_entry<P, S, I, C>(path: P, section: S, id: I, content: C) -> Result<()>
+    where
+        P: AsRef<Path>,
+        S: AsRef<str>,
+        I: AsRef<str>,
+        C: AsRef<str>,
+    {
+        let path = path.as_ref();
+        let unreleased_path = path.join(UNRELEASED_FOLDER);
+        ensure_dir(&unreleased_path)?;
+        let section = section.as_ref();
+        let section_path = unreleased_path.join(section);
+        ensure_dir(&section_path)?;
+        let entry_path = section_path.join(entry_id_to_filename(id));
+        // We don't want to overwrite any existing entries
+        if fs::metadata(&entry_path).is_ok() {
+            return Err(Error::FileExists(path_to_str(&entry_path)));
+        }
+        fs::write(&entry_path, content.as_ref())?;
+        info!("Wrote entry to: {}", path_to_str(&entry_path));
+        Ok(())
+    }
+
+    /// Compute the file system path to the entry with the given parameters.
+    pub fn get_entry_path<P, R, S, I>(path: P, release: R, section: S, id: I) -> PathBuf
+    where
+        P: AsRef<Path>,
+        R: AsRef<str>,
+        S: AsRef<str>,
+        I: AsRef<str>,
+    {
+        path.as_ref()
+            .join(release.as_ref())
+            .join(section.as_ref())
+            .join(entry_id_to_filename(id))
     }
 
     /// Moves the `unreleased` folder from our changelog to a directory whose
@@ -404,6 +443,10 @@ fn ensure_dir(path: &Path) -> Result<()> {
         return Err(Error::ExpectedDir(path_to_str(path)));
     }
     Ok(())
+}
+
+fn entry_id_to_filename<S: AsRef<str>>(id: S) -> String {
+    format!("{}.{}", id.as_ref(), CHANGE_SET_ENTRY_EXT)
 }
 
 fn trim_newlines(s: &str) -> &str {

@@ -72,6 +72,24 @@ unclog init
 unclog init -e CHANGELOG.md
 ```
 
+#### Adding a new unreleased entry
+
+```bash
+# First ensure that your $EDITOR environment variable is configured, or you can
+# manually specify an editor binary path via the --editor flag.
+#
+# This will launch your configured editor and, if you add any content to the
+# feature file it will be added to
+# ".changelog/unreleased/features/23-some-new-feature.md".
+#
+# The convention is that you *must* prepend the issue/PR number to which the
+# change refers to the entry ID (i.e. 23-some-new-feature relates to issue 23).
+unclog add features 23-some-new-feature
+
+# Add another feature in a different section
+unclog add breaking-changes 24-break-the-api
+```
+
 #### Building a changelog
 
 ```bash
