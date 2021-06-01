@@ -1,27 +1,17 @@
 //! Our model for a changelog.
 
-use crate::input::ChangeSetSectionInput;
-use crate::{ChangeSetInput, ChangelogInput, EntryInput, ReleaseInput};
-use log::debug;
+use crate::{Error, Result};
+use log::{debug, info};
 use semver::Version;
-use std::convert::{TryFrom, TryInto};
-use std::fmt;
-use std::num::ParseIntError;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use thiserror::Error;
+use std::{fmt, fs};
 
-/// Errors relating to parsing of changelog input.
-#[derive(Error, Debug)]
-pub enum ParseError {
-    #[error("cannot extract version")]
-    CannotExtractVersion(String),
-    #[error("invalid semantic version")]
-    InvalidSemanticVersion(#[from] semver::Error),
-    #[error("expected entry ID to start with a number, but got: \"{0}\"")]
-    InvalidEntryId(String),
-    #[error("failed to parse entry ID as a number")]
-    InvalidEntryNumber(#[from] ParseIntError),
-}
+const UNRELEASED_FOLDER: &str = "unreleased";
+const EPILOGUE_FILENAME: &str = "epilogue.md";
+const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
+const CHANGE_SET_ENTRY_EXT: &str = "md";
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
@@ -35,24 +25,65 @@ pub struct Changelog {
     pub epilogue: Option<String>,
 }
 
-impl TryFrom<ChangelogInput> for Changelog {
-    type Error = ParseError;
+impl Changelog {
+    /// Initialize a new (empty) changelog in the given path.
+    ///
+    /// Creates a `.changelog` folder and, optionally, copies an epilogue into
+    /// it.
+    pub fn init<P: AsRef<Path>, E: AsRef<Path>>(path: P, epilogue_path: Option<E>) -> Result<()> {
+        let path = path.as_ref();
+        let changelog_path = path.join(".changelog");
+        if fs::metadata(&changelog_path).is_err() {
+            info!("Creating directory: {}", changelog_path.display());
+            fs::create_dir(&changelog_path)?;
+        }
+        if !fs::metadata(&changelog_path)?.is_dir() {
+            return Err(Error::ExpectedDir(path_to_str(&changelog_path)));
+        }
+        let epilogue_path = epilogue_path.as_ref();
+        if let Some(ep) = epilogue_path {
+            let new_epilogue_path = changelog_path.join(EPILOGUE_FILENAME);
+            fs::copy(ep, &new_epilogue_path)?;
+            info!(
+                "Copied epilogue from {} to {}",
+                path_to_str(ep),
+                path_to_str(&new_epilogue_path),
+            );
+        }
+        info!("Success!");
+        Ok(())
+    }
 
-    fn try_from(input: ChangelogInput) -> Result<Self, Self::Error> {
-        let mut releases = input
-            .releases
+    /// Attempt to read a full changelog from the given directory.
+    pub fn read_from_dir<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        info!(
+            "Attempting to load changelog from directory: {}",
+            path.display()
+        );
+        if !fs::metadata(path)?.is_dir() {
+            return Err(Error::ExpectedDir(path_to_str(path)));
+        }
+        let unreleased = ChangeSet::read_from_dir_opt(path.join(UNRELEASED_FOLDER))?;
+        debug!("Scanning for releases in {}", path.display());
+        let release_dirs = fs::read_dir(path)?
+            .filter_map(|r| match r {
+                Ok(e) => release_dir_filter(e),
+                Err(e) => Some(Err(Error::Io(e))),
+            })
+            .collect::<Result<Vec<PathBuf>>>()?;
+        let mut releases = release_dirs
             .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<Release>, Self::Error>>()?;
+            .map(Release::read_from_dir)
+            .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
         releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
+        let epilogue =
+            read_to_string_opt(path.join(EPILOGUE_FILENAME))?.map(|e| trim_newlines(&e).to_owned());
         Ok(Self {
-            unreleased: match input.unreleased {
-                Some(csi) => Some(csi.try_into()?),
-                None => None,
-            },
+            unreleased,
             releases,
-            epilogue: input.epilogue.map(|e| trim_newlines(&e).to_owned()),
+            epilogue,
         })
     }
 }
@@ -89,14 +120,25 @@ pub struct Release {
     pub changes: ChangeSet,
 }
 
-impl TryFrom<ReleaseInput> for Release {
-    type Error = ParseError;
-
-    fn try_from(input: ReleaseInput) -> Result<Self, Self::Error> {
+impl Release {
+    /// Attempt to read a single release from the given directory.
+    pub fn read_from_dir<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        debug!("Loading release from {}", path.display());
+        let path_str = path_to_str(path.clone());
+        if !path.is_dir() {
+            return Err(Error::ExpectedDir(path_str));
+        }
+        let id = path
+            .file_name()
+            .ok_or_else(|| Error::CannotObtainName(path_str.clone()))?
+            .to_string_lossy()
+            .to_string();
+        let version = Version::parse(extract_release_version(&id)?)?;
         Ok(Self {
-            id: input.version.clone(),
-            version: Version::parse(extract_release_version(&input.version)?)?,
-            changes: input.changes.try_into()?,
+            id,
+            version,
+            changes: ChangeSet::read_from_dir(path)?,
         })
     }
 }
@@ -116,19 +158,38 @@ pub struct ChangeSet {
     pub sections: Vec<ChangeSetSection>,
 }
 
-impl TryFrom<ChangeSetInput> for ChangeSet {
-    type Error = ParseError;
-
-    fn try_from(input: ChangeSetInput) -> Result<Self, Self::Error> {
-        let (summary, sections) = (input.summary, input.sections);
-        let summary = summary.map(|s| trim_newlines(&s).to_owned());
-        let mut sections = sections
+impl ChangeSet {
+    /// Attempt to read a single change set from the given directory.
+    pub fn read_from_dir<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        debug!("Loading change set from {}", path.display());
+        let summary = read_to_string_opt(path.join(CHANGE_SET_SUMMARY_FILENAME))?
+            .map(|s| trim_newlines(&s).to_owned());
+        let section_dirs = fs::read_dir(path)?
+            .filter_map(|r| match r {
+                Ok(e) => change_set_section_filter(e),
+                Err(e) => Some(Err(Error::Io(e))),
+            })
+            .collect::<Result<Vec<PathBuf>>>()?;
+        let mut sections = section_dirs
             .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<ChangeSetSection>, Self::Error>>()?;
+            .map(ChangeSetSection::read_from_dir)
+            .collect::<Result<Vec<ChangeSetSection>>>()?;
         // Sort sections alphabetically
         sections.sort_by(|a, b| a.title.cmp(&b.title));
         Ok(Self { summary, sections })
+    }
+
+    /// Attempt to read a single change set from the given directory, like
+    /// [`ChangeSet::read_from_dir`], but return `Option::None` if the
+    /// directory does not exist.
+    pub fn read_from_dir_opt<P: AsRef<Path>>(path: P) -> Result<Option<Self>> {
+        let path = path.as_ref();
+        // The path doesn't exist
+        if fs::metadata(path).is_err() {
+            return Ok(None);
+        }
+        Self::read_from_dir(path).map(Some)
     }
 }
 
@@ -160,17 +221,29 @@ pub struct ChangeSetSection {
     pub entries: Vec<Entry>,
 }
 
-impl TryFrom<ChangeSetSectionInput> for ChangeSetSection {
-    type Error = ParseError;
-
-    fn try_from(input: ChangeSetSectionInput) -> Result<Self, Self::Error> {
-        let (title, entries) = (input.id, input.entries);
-        let title = change_set_section_title(title);
-        let mut entries = entries
+impl ChangeSetSection {
+    /// Attempt to read a single change set section from the given directory.
+    pub fn read_from_dir<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        debug!("Loading section {}", path.display());
+        let id = path
+            .file_name()
+            .map(OsStr::to_str)
+            .flatten()
+            .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
+            .to_owned();
+        let title = change_set_section_title(id);
+        let entry_files = fs::read_dir(path)?
+            .filter_map(|r| match r {
+                Ok(e) => change_set_entry_filter(e),
+                Err(e) => Some(Err(Error::Io(e))),
+            })
+            .collect::<Result<Vec<PathBuf>>>()?;
+        let mut entries = entry_files
             .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<Entry>, Self::Error>>()?;
-        // Sort entries by ID in ascending lexicographical order.
+            .map(Entry::read_from_file)
+            .collect::<Result<Vec<Entry>>>()?;
+        // Sort entries by ID in ascending numeric order.
         entries.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(Self { title, entries })
     }
@@ -200,14 +273,20 @@ pub struct Entry {
     pub details: String,
 }
 
-impl TryFrom<EntryInput> for Entry {
-    type Error = ParseError;
-
-    fn try_from(input: EntryInput) -> Result<Self, Self::Error> {
-        debug!("Parsing entry from {}", input.id);
+impl Entry {
+    /// Attempt to read a single entry for a change set section from the given
+    /// file.
+    pub fn read_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        let path = path.as_ref();
+        debug!("Loading entry from {}", path.display());
         Ok(Self {
-            id: extract_entry_id(input.id)?,
-            details: trim_newlines(&input.details).to_owned(),
+            id: extract_entry_id(
+                path.file_name()
+                    .map(OsStr::to_str)
+                    .flatten()
+                    .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?,
+            )?,
+            details: trim_newlines(&read_to_string(path)?).to_owned(),
         })
     }
 }
@@ -215,6 +294,62 @@ impl TryFrom<EntryInput> for Entry {
 impl fmt::Display for Entry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.details)
+    }
+}
+
+fn path_to_str<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref().to_string_lossy().to_string()
+}
+
+fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String> {
+    Ok(fs::read_to_string(path)?)
+}
+
+fn read_to_string_opt<P: AsRef<Path>>(path: P) -> Result<Option<String>> {
+    let path = path.as_ref();
+    if fs::metadata(path).is_err() {
+        return Ok(None);
+    }
+    read_to_string(path).map(Some)
+}
+
+fn release_dir_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
+    let file_name = e.file_name();
+    let file_name = file_name.to_string_lossy();
+    let meta = match e.metadata() {
+        Ok(m) => m,
+        Err(e) => return Some(Err(Error::Io(e))),
+    };
+    if meta.is_dir() && file_name != UNRELEASED_FOLDER {
+        Some(Ok(e.path()))
+    } else {
+        None
+    }
+}
+
+fn change_set_section_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
+    let meta = match e.metadata() {
+        Ok(m) => m,
+        Err(e) => return Some(Err(Error::Io(e))),
+    };
+    if meta.is_dir() {
+        Some(Ok(e.path()))
+    } else {
+        None
+    }
+}
+
+fn change_set_entry_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
+    let meta = match e.metadata() {
+        Ok(m) => m,
+        Err(e) => return Some(Err(Error::Io(e))),
+    };
+    let path = e.path();
+    let ext = path.extension()?.to_str()?;
+    if meta.is_file() && ext == CHANGE_SET_ENTRY_EXT {
+        Some(Ok(path))
+    } else {
+        None
     }
 }
 
@@ -226,22 +361,22 @@ fn change_set_section_title<S: AsRef<str>>(s: S) -> String {
     s.as_ref().to_owned().replace('-', " ").to_uppercase()
 }
 
-fn extract_entry_id<S: AsRef<str>>(s: S) -> Result<u64, ParseError> {
+fn extract_entry_id<S: AsRef<str>>(s: S) -> Result<u64> {
     let s = s.as_ref();
     let num_digits = s
         .chars()
         .position(|c| !('0'..='9').contains(&c))
-        .ok_or_else(|| ParseError::InvalidEntryId(s.to_owned()))?;
+        .ok_or_else(|| Error::InvalidEntryId(s.to_owned()))?;
     let digits = &s[..num_digits];
     Ok(u64::from_str(digits)?)
 }
 
-fn extract_release_version(s: &str) -> Result<&str, ParseError> {
+fn extract_release_version(s: &str) -> Result<&str> {
     // Just find the first digit in the string
     let version_start = s
         .chars()
         .position(|c| ('0'..='9').contains(&c))
-        .ok_or_else(|| ParseError::CannotExtractVersion(s.to_owned()))?;
+        .ok_or_else(|| Error::CannotExtractVersion(s.to_owned()))?;
     Ok(&s[version_start..])
 }
 
