@@ -30,15 +30,20 @@ impl Changelog {
     ///
     /// Creates the target folder if it doesn't exist, and optionally copies an
     /// epilogue into it.
-    pub fn init<P: AsRef<Path>, E: AsRef<Path>>(path: P, epilogue_path: Option<E>) -> Result<()> {
+    pub fn init_dir<P: AsRef<Path>, E: AsRef<Path>>(
+        path: P,
+        epilogue_path: Option<E>,
+    ) -> Result<()> {
         let path = path.as_ref();
+        // Ensure the desired path exists.
         if fs::metadata(path).is_err() {
-            info!("Creating directory: {}", path.display());
             fs::create_dir(path)?;
+            info!("Created directory: {}", path_to_str(path));
         }
         if !fs::metadata(path)?.is_dir() {
             return Err(Error::ExpectedDir(path_to_str(path)));
         }
+        // Optionally copy an epilogue into the target path.
         let epilogue_path = epilogue_path.as_ref();
         if let Some(ep) = epilogue_path {
             let new_epilogue_path = path.join(EPILOGUE_FILENAME);
@@ -49,6 +54,19 @@ impl Changelog {
                 path_to_str(&new_epilogue_path),
             );
         }
+        // Ensure we at least have an unreleased directory with a .gitkeep file.
+        let unreleased_dir = path.join("unreleased");
+        if fs::metadata(&unreleased_dir).is_err() {
+            fs::create_dir(&unreleased_dir)?;
+            info!("Created directory: {}", path_to_str(&unreleased_dir));
+        }
+        if !fs::metadata(&unreleased_dir)?.is_dir() {
+            return Err(Error::ExpectedDir(path_to_str(&unreleased_dir)));
+        }
+        let unreleased_gitkeep = unreleased_dir.join(".gitkeep");
+        fs::write(&unreleased_gitkeep, "")?;
+        debug!("Wrote {}", path_to_str(&unreleased_gitkeep));
+
         info!("Success!");
         Ok(())
     }

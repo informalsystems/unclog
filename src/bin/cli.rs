@@ -69,5 +69,5 @@ fn build_changelog<P: AsRef<Path>>(path: P) -> Result<()> {
 }
 
 fn init_changelog<P: AsRef<Path>, E: AsRef<Path>>(path: P, epilogue_path: Option<E>) -> Result<()> {
-    Changelog::init(path, epilogue_path)
+    Changelog::init_dir(path, epilogue_path)
 }
