@@ -1,0 +1,16 @@
+name: Changelog
+on: [pull_request]
+jobs:
+  check-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - run: |
+          export TIMESTAMP=$(date +"%s")
+          export TMP_FILE="/tmp/changelog-${TIMESTAMP}.md"
+          cargo run -- build > $TMP_FILE
+          diff $TMP_FILE CHANGELOG.md
