@@ -91,6 +91,14 @@ unclog -v build
 unclog --help
 ```
 
+#### Releasing a new version's change set
+
+```bash
+# Moves all entries in your ".changelog/unreleased" folder to
+# ".changelog/v0.2.0" and ensures the ".changelog/unreleased" folder is empty.
+unclog release v0.2.0
+```
+
 ### As a Library
 
 By default, the `cli` feature is enabled, which builds the CLI. To use `unclog`
