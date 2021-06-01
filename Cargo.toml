@@ -7,7 +7,7 @@ license     = "Apache-2.0"
 homepage    = "https://github.com/informalsystems/unclog"
 repository  = "https://github.com/informalsystems/unclog"
 readme      = "README.md"
-categories  = ["developer-tools"]
+categories  = ["development-tools"]
 keywords    = ["changelog", "markdown"]
 description = """
     unclog allows you to build your changelog from a collection of independent
