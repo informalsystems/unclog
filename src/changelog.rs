@@ -163,6 +163,8 @@ impl Changelog {
             path_to_str(&unreleased_path),
             path_to_str(&version_path)
         );
+        // We no longer need a .gitkeep in the release directory, if there is one
+        rm_gitkeep(&version_path)?;
 
         Self::init_empty_unreleased_dir(path)
     }
@@ -472,6 +474,15 @@ fn ensure_dir(path: &Path) -> Result<()> {
 
 fn entry_id_to_filename<S: AsRef<str>>(id: S) -> String {
     format!("{}.{}", id.as_ref(), CHANGE_SET_ENTRY_EXT)
+}
+
+fn rm_gitkeep(path: &Path) -> Result<()> {
+    let path = path.join(".gitkeep");
+    if fs::metadata(&path).is_ok() {
+        fs::remove_file(&path)?;
+        debug!("Removed .gitkeep file from: {}", path_to_str(&path));
+    }
+    Ok(())
 }
 
 fn trim_newlines(s: &str) -> &str {
