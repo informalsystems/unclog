@@ -17,12 +17,6 @@ struct Opt {
 
 #[derive(StructOpt)]
 enum Command {
-    /// Build the changelog from the input path and write the output to stdout.
-    Build {
-        /// The path to the changelog folder to build.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
-    },
     /// Create and initialize a fresh .changelog folder.
     Init {
         /// An optional epilogue to add to the new changelog.
@@ -30,6 +24,12 @@ enum Command {
         epilogue_path: Option<PathBuf>,
 
         /// The path to the changelog folder to initialize.
+        #[structopt(default_value = ".changelog")]
+        path: PathBuf,
+    },
+    /// Build the changelog from the input path and write the output to stdout.
+    Build {
+        /// The path to the changelog folder to build.
         #[structopt(default_value = ".changelog")]
         path: PathBuf,
     },
