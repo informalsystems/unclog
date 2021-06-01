@@ -193,7 +193,7 @@ impl fmt::Display for Changelog {
                         if unreleased.is_empty() {
                             "".to_owned()
                         } else {
-                            format!("## Unreleased\n\n{}\n\n", unreleased)
+                            format!("## Unreleased{}\n\n", unreleased)
                         }
                     }
                 ),
@@ -204,7 +204,7 @@ impl fmt::Display for Changelog {
                     .join("\n\n"),
                 self.epilogue
                     .as_ref()
-                    .map_or_else(|| "".to_owned(), Clone::clone)
+                    .map_or_else(|| "".to_owned(), |e| format!("\n\n{}", e))
             )
         }
     }
@@ -263,8 +263,12 @@ impl ChangeSet {
     /// Returns true if this change set has no summary and no entries
     /// associated with it.
     pub fn is_empty(&self) -> bool {
-        self.summary.as_ref().map_or(true, String::is_empty)
-            && self.sections.iter().fold(0, |acc, s| acc + s.entries.len()) == 0
+        self.summary.as_ref().map_or(true, String::is_empty) && self.are_sections_empty()
+    }
+
+    /// Returns whether or not all the sections are empty.
+    pub fn are_sections_empty(&self) -> bool {
+        self.sections.iter().all(ChangeSetSection::is_empty)
     }
 
     /// Attempt to read a single change set from the given directory.
@@ -305,12 +309,18 @@ impl fmt::Display for ChangeSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}{}",
+            "{}{}{}",
             self.summary
                 .as_ref()
-                .map_or_else(|| "".to_owned(), |s| format!("{}\n\n", s)),
+                .map_or_else(|| "".to_owned(), Clone::clone),
+            if self.are_sections_empty() {
+                ""
+            } else {
+                "\n\n"
+            },
             self.sections
                 .iter()
+                .filter(|s| !s.is_empty())
                 .map(ToString::to_string)
                 .collect::<Vec<String>>()
                 .join("\n\n")
@@ -330,6 +340,11 @@ pub struct ChangeSetSection {
 }
 
 impl ChangeSetSection {
+    /// Returns whether or not this section is empty.
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     /// Attempt to read a single change set section from the given directory.
     pub fn read_from_dir<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
