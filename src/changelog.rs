@@ -28,21 +28,20 @@ pub struct Changelog {
 impl Changelog {
     /// Initialize a new (empty) changelog in the given path.
     ///
-    /// Creates a `.changelog` folder and, optionally, copies an epilogue into
-    /// it.
+    /// Creates the target folder if it doesn't exist, and optionally copies an
+    /// epilogue into it.
     pub fn init<P: AsRef<Path>, E: AsRef<Path>>(path: P, epilogue_path: Option<E>) -> Result<()> {
         let path = path.as_ref();
-        let changelog_path = path.join(".changelog");
-        if fs::metadata(&changelog_path).is_err() {
-            info!("Creating directory: {}", changelog_path.display());
-            fs::create_dir(&changelog_path)?;
+        if fs::metadata(path).is_err() {
+            info!("Creating directory: {}", path.display());
+            fs::create_dir(path)?;
         }
-        if !fs::metadata(&changelog_path)?.is_dir() {
-            return Err(Error::ExpectedDir(path_to_str(&changelog_path)));
+        if !fs::metadata(path)?.is_dir() {
+            return Err(Error::ExpectedDir(path_to_str(path)));
         }
         let epilogue_path = epilogue_path.as_ref();
         if let Some(ep) = epilogue_path {
-            let new_epilogue_path = changelog_path.join(EPILOGUE_FILENAME);
+            let new_epilogue_path = path.join(EPILOGUE_FILENAME);
             fs::copy(ep, &new_epilogue_path)?;
             info!(
                 "Copied epilogue from {} to {}",
