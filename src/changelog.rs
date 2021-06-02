@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{fmt, fs};
 
+pub const CHANGELOG_HEADING: &str = "# CHANGELOG";
 pub const UNRELEASED_FOLDER: &str = "unreleased";
+pub const UNRELEASED_HEADING: &str = "## Unreleased";
 pub const EPILOGUE_FILENAME: &str = "epilogue.md";
 pub const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
 pub const CHANGE_SET_ENTRY_EXT: &str = "md";
@@ -181,32 +183,22 @@ impl Changelog {
 
 impl fmt::Display for Changelog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut paragraphs = vec![CHANGELOG_HEADING.to_owned()];
         if self.is_empty() {
-            write!(f, "# CHANGELOG\n\n{}\n", EMPTY_CHANGELOG_MSG)
+            paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
         } else {
-            write!(
-                f,
-                "# CHANGELOG\n\n{}{}{}\n",
-                self.unreleased.as_ref().map_or_else(
-                    || "".to_owned(),
-                    |unreleased| {
-                        if unreleased.is_empty() {
-                            "".to_owned()
-                        } else {
-                            format!("## Unreleased{}\n\n", unreleased)
-                        }
-                    }
-                ),
-                self.releases
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<String>>()
-                    .join("\n\n"),
-                self.epilogue
-                    .as_ref()
-                    .map_or_else(|| "".to_owned(), |e| format!("\n\n{}", e))
-            )
+            if let Some(unreleased) = self.unreleased.as_ref() {
+                paragraphs.push(UNRELEASED_HEADING.to_owned());
+                paragraphs.push(unreleased.to_string());
+            }
+            self.releases
+                .iter()
+                .for_each(|r| paragraphs.push(r.to_string()));
+            if let Some(epilogue) = self.epilogue.as_ref() {
+                paragraphs.push(epilogue.clone());
+            }
         }
+        writeln!(f, "{}", paragraphs.join("\n\n"))
     }
 }
 
@@ -246,7 +238,11 @@ impl Release {
 
 impl fmt::Display for Release {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "## {}\n\n{}", self.id, self.changes)
+        let mut paragraphs = vec![format!("## {}", self.id)];
+        if !self.changes.is_empty() {
+            paragraphs.push(self.changes.to_string());
+        }
+        write!(f, "{}", paragraphs.join("\n\n"))
     }
 }
 
@@ -307,24 +303,15 @@ impl ChangeSet {
 
 impl fmt::Display for ChangeSet {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            self.summary
-                .as_ref()
-                .map_or_else(|| "".to_owned(), Clone::clone),
-            if self.are_sections_empty() {
-                ""
-            } else {
-                "\n\n"
-            },
-            self.sections
-                .iter()
-                .filter(|s| !s.is_empty())
-                .map(ToString::to_string)
-                .collect::<Vec<String>>()
-                .join("\n\n")
-        )
+        let mut paragraphs = Vec::new();
+        if let Some(summary) = self.summary.as_ref() {
+            paragraphs.push(summary.clone());
+        }
+        self.sections
+            .iter()
+            .filter(|s| !s.is_empty())
+            .for_each(|s| paragraphs.push(s.to_string()));
+        write!(f, "{}", paragraphs.join("\n\n"))
     }
 }
 
@@ -374,16 +361,11 @@ impl ChangeSetSection {
 
 impl fmt::Display for ChangeSetSection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "### {}\n\n{}",
-            self.title,
-            self.entries
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<String>>()
-                .join("\n")
-        )
+        let mut entries = Vec::new();
+        self.entries
+            .iter()
+            .for_each(|e| entries.push(e.to_string()));
+        write!(f, "### {}\n\n{}", self.title, entries.join("\n"))
     }
 }
 
