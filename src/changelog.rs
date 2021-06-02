@@ -188,8 +188,10 @@ impl fmt::Display for Changelog {
             paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
         } else {
             if let Some(unreleased) = self.unreleased.as_ref() {
-                paragraphs.push(UNRELEASED_HEADING.to_owned());
-                paragraphs.push(unreleased.to_string());
+                if !unreleased.is_empty() {
+                    paragraphs.push(UNRELEASED_HEADING.to_owned());
+                    paragraphs.push(unreleased.to_string());
+                }
             }
             self.releases
                 .iter()
