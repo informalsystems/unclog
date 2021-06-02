@@ -4,8 +4,9 @@ mod changelog;
 mod error;
 
 pub use changelog::{
-    ChangeSet, Changelog, Entry, Release, CHANGE_SET_ENTRY_EXT, CHANGE_SET_SUMMARY_FILENAME,
-    EMPTY_CHANGELOG_MSG, EPILOGUE_FILENAME, UNRELEASED_FOLDER,
+    ChangeSet, Changelog, Entry, Release, CHANGELOG_HEADING, CHANGE_SET_ENTRY_EXT,
+    CHANGE_SET_SUMMARY_FILENAME, EMPTY_CHANGELOG_MSG, EPILOGUE_FILENAME, UNRELEASED_FOLDER,
+    UNRELEASED_HEADING,
 };
 pub use error::Error;
 
