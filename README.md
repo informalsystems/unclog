@@ -1,5 +1,11 @@
 # unclog
 
+[![Crate][crate-image]][crate-link]
+[![Docs][docs-image]][docs-link]
+[![Build Status][build-image]][build-link]
+[![Apache 2.0 Licensed][license-image]][license-link]
+![Rust Stable][rustc-image]
+
 **Unclog your changelog**
 
 Build your changelog from a structured collection of independent files in your
@@ -142,3 +148,15 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+[crate-image]: https://img.shields.io/crates/v/unclog.svg
+[crate-link]: https://crates.io/crates/unclog
+[docs-image]: https://docs.rs/unclog/badge.svg
+[docs-link]: https://docs.rs/unclog/
+[build-image]: https://github.com/informalsystems/unclog/workflows/Rust/badge.svg
+[build-link]: https://github.com/informalsystems/unclog/actions?query=workflow%3ARust
+[audit-image]: https://github.com/informalsystems/unclog/workflows/Audit-Check/badge.svg
+[audit-link]: https://github.com/informalsystems/unclog/actions?query=workflow%3AAudit-Check
+[license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
+[license-link]: https://github.com/informalsystems/unclog/blob/master/LICENSE
+[rustc-image]: https://img.shields.io/badge/rustc-stable-blue.svg
