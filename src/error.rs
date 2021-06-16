@@ -25,4 +25,6 @@ pub enum Error {
     InvalidEntryId(String),
     #[error("failed to parse entry ID as a number")]
     InvalidEntryNumber(#[from] std::num::ParseIntError),
+    #[error("no unreleased entries yet")]
+    NoUnreleasedEntries,
 }

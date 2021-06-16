@@ -51,11 +51,8 @@ impl Changelog {
         if self.is_empty() {
             paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
         } else {
-            if let Some(unreleased) = self.unreleased.as_ref() {
-                if !unreleased.is_empty() {
-                    paragraphs.push(UNRELEASED_HEADING.to_owned());
-                    paragraphs.push(unreleased.to_string());
-                }
+            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs() {
+                paragraphs.extend(unreleased_paragraphs);
             }
             self.releases
                 .iter()
@@ -65,6 +62,20 @@ impl Changelog {
             }
         }
         paragraphs.join("\n\n")
+    }
+
+    /// Renders just the unreleased changes to a string.
+    pub fn render_unreleased(&self) -> Result<String> {
+        Ok(self.unreleased_paragraphs()?.join("\n\n"))
+    }
+
+    fn unreleased_paragraphs(&self) -> Result<Vec<String>> {
+        if let Some(unreleased) = self.unreleased.as_ref() {
+            if !unreleased.is_empty() {
+                return Ok(vec![UNRELEASED_HEADING.to_owned(), unreleased.to_string()]);
+            }
+        }
+        Err(Error::NoUnreleasedEntries)
     }
 
     /// Initialize a new (empty) changelog in the given path.
