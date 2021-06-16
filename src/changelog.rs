@@ -45,6 +45,28 @@ impl Changelog {
             && self.epilogue.as_ref().map_or(true, String::is_empty)
     }
 
+    /// Renders the full changelog to a string.
+    pub fn render_full(&self) -> String {
+        let mut paragraphs = vec![CHANGELOG_HEADING.to_owned()];
+        if self.is_empty() {
+            paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
+        } else {
+            if let Some(unreleased) = self.unreleased.as_ref() {
+                if !unreleased.is_empty() {
+                    paragraphs.push(UNRELEASED_HEADING.to_owned());
+                    paragraphs.push(unreleased.to_string());
+                }
+            }
+            self.releases
+                .iter()
+                .for_each(|r| paragraphs.push(r.to_string()));
+            if let Some(epilogue) = self.epilogue.as_ref() {
+                paragraphs.push(epilogue.clone());
+            }
+        }
+        paragraphs.join("\n\n")
+    }
+
     /// Initialize a new (empty) changelog in the given path.
     ///
     /// Creates the target folder if it doesn't exist, and optionally copies an
@@ -192,24 +214,7 @@ impl Changelog {
 
 impl fmt::Display for Changelog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut paragraphs = vec![CHANGELOG_HEADING.to_owned()];
-        if self.is_empty() {
-            paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
-        } else {
-            if let Some(unreleased) = self.unreleased.as_ref() {
-                if !unreleased.is_empty() {
-                    paragraphs.push(UNRELEASED_HEADING.to_owned());
-                    paragraphs.push(unreleased.to_string());
-                }
-            }
-            self.releases
-                .iter()
-                .for_each(|r| paragraphs.push(r.to_string()));
-            if let Some(epilogue) = self.epilogue.as_ref() {
-                paragraphs.push(epilogue.clone());
-            }
-        }
-        writeln!(f, "{}", paragraphs.join("\n\n"))
+        writeln!(f, "{}", self.render_full())
     }
 }
 
