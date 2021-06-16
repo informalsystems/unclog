@@ -1,7 +1,7 @@
 //! `unclog` helps you build your changelog.
 
-// Re-exports
-pub use semver::{self, Version};
+mod changelog;
+mod error;
 
 pub use changelog::{
     ChangeSet, ChangeSetSection, Changelog, Entry, Release, CHANGELOG_HEADING,
@@ -10,7 +10,7 @@ pub use changelog::{
 };
 pub use error::Error;
 
-mod changelog;
-mod error;
-
 pub type Result<T> = std::result::Result<T, Error>;
+
+// Re-exports
+pub use semver::{self, Version};

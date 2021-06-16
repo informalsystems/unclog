@@ -1,13 +1,11 @@
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use std::{fmt, fs};
-
-use log::debug;
-
 use crate::changelog::fs_utils;
 use crate::error::Error;
 use crate::Entry;
 use crate::CHANGE_SET_ENTRY_EXT;
+use log::debug;
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+use std::{fmt, fs};
 
 /// A single section in a set of changes.
 ///
