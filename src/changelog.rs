@@ -7,15 +7,17 @@ mod fs_utils;
 mod parsing_utils;
 mod release;
 
-use crate::{Error, Result};
-use log::{debug, info};
-use std::path::{Path, PathBuf};
-use std::{fmt, fs};
-
 pub use change_set::ChangeSet;
 pub use change_set_section::ChangeSetSection;
 pub use entry::Entry;
 pub use release::Release;
+
+use crate::changelog::fs_utils::{ensure_dir, path_to_str, read_to_string_opt, rm_gitkeep};
+use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
+use crate::{Error, Result};
+use log::{debug, info};
+use std::path::{Path, PathBuf};
+use std::{fmt, fs};
 
 pub const CHANGELOG_HEADING: &str = "# CHANGELOG";
 pub const UNRELEASED_FOLDER: &str = "unreleased";
@@ -45,6 +47,39 @@ impl Changelog {
             && self.epilogue.as_ref().map_or(true, String::is_empty)
     }
 
+    /// Renders the full changelog to a string.
+    pub fn render_full(&self) -> String {
+        let mut paragraphs = vec![CHANGELOG_HEADING.to_owned()];
+        if self.is_empty() {
+            paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
+        } else {
+            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs() {
+                paragraphs.extend(unreleased_paragraphs);
+            }
+            self.releases
+                .iter()
+                .for_each(|r| paragraphs.push(r.to_string()));
+            if let Some(epilogue) = self.epilogue.as_ref() {
+                paragraphs.push(epilogue.clone());
+            }
+        }
+        paragraphs.join("\n\n")
+    }
+
+    /// Renders just the unreleased changes to a string.
+    pub fn render_unreleased(&self) -> Result<String> {
+        Ok(self.unreleased_paragraphs()?.join("\n\n"))
+    }
+
+    fn unreleased_paragraphs(&self) -> Result<Vec<String>> {
+        if let Some(unreleased) = self.unreleased.as_ref() {
+            if !unreleased.is_empty() {
+                return Ok(vec![UNRELEASED_HEADING.to_owned(), unreleased.to_string()]);
+            }
+        }
+        Err(Error::NoUnreleasedEntries)
+    }
+
     /// Initialize a new (empty) changelog in the given path.
     ///
     /// Creates the target folder if it doesn't exist, and optionally copies an
@@ -55,7 +90,7 @@ impl Changelog {
     ) -> Result<()> {
         let path = path.as_ref();
         // Ensure the desired path exists.
-        fs_utils::ensure_dir(path)?;
+        ensure_dir(path)?;
 
         // Optionally copy an epilogue into the target path.
         let epilogue_path = epilogue_path.as_ref();
@@ -64,8 +99,8 @@ impl Changelog {
             fs::copy(ep, &new_epilogue_path)?;
             info!(
                 "Copied epilogue from {} to {}",
-                fs_utils::path_to_str(ep),
-                fs_utils::path_to_str(&new_epilogue_path),
+                path_to_str(ep),
+                path_to_str(&new_epilogue_path),
             );
         }
         // We want an empty unreleased directory with a .gitkeep file
@@ -99,8 +134,8 @@ impl Changelog {
             .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
         releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
-        let epilogue = fs_utils::read_to_string_opt(path.join(EPILOGUE_FILENAME))?
-            .map(|e| parsing_utils::trim_newlines(&e).to_owned());
+        let epilogue =
+            read_to_string_opt(path.join(EPILOGUE_FILENAME))?.map(|e| trim_newlines(&e).to_owned());
         Ok(Self {
             unreleased,
             releases,
@@ -119,17 +154,17 @@ impl Changelog {
     {
         let path = path.as_ref();
         let unreleased_path = path.join(UNRELEASED_FOLDER);
-        fs_utils::ensure_dir(&unreleased_path)?;
+        ensure_dir(&unreleased_path)?;
         let section = section.as_ref();
         let section_path = unreleased_path.join(section);
-        fs_utils::ensure_dir(&section_path)?;
+        ensure_dir(&section_path)?;
         let entry_path = section_path.join(entry_id_to_filename(id));
         // We don't want to overwrite any existing entries
         if fs::metadata(&entry_path).is_ok() {
-            return Err(Error::FileExists(fs_utils::path_to_str(&entry_path)));
+            return Err(Error::FileExists(path_to_str(&entry_path)));
         }
         fs::write(&entry_path, content.as_ref())?;
-        info!("Wrote entry to: {}", fs_utils::path_to_str(&entry_path));
+        info!("Wrote entry to: {}", path_to_str(&entry_path));
         Ok(())
     }
 
@@ -154,62 +189,45 @@ impl Changelog {
         let version = version.as_ref();
 
         // Validate the version
-        let _ = semver::Version::parse(&parsing_utils::extract_release_version(version)?)?;
+        let _ = semver::Version::parse(&extract_release_version(version)?)?;
 
         let version_path = path.join(version);
         // The target version path must not yet exist
         if fs::metadata(&version_path).is_ok() {
-            return Err(Error::DirExists(fs_utils::path_to_str(&version_path)));
+            return Err(Error::DirExists(path_to_str(&version_path)));
         }
 
         let unreleased_path = path.join(UNRELEASED_FOLDER);
         // The unreleased folder must exist
         if fs::metadata(&unreleased_path).is_err() {
-            return Err(Error::ExpectedDir(fs_utils::path_to_str(&unreleased_path)));
+            return Err(Error::ExpectedDir(path_to_str(&unreleased_path)));
         }
 
         fs::rename(&unreleased_path, &version_path)?;
         info!(
             "Moved {} to {}",
-            fs_utils::path_to_str(&unreleased_path),
-            fs_utils::path_to_str(&version_path)
+            path_to_str(&unreleased_path),
+            path_to_str(&version_path)
         );
         // We no longer need a .gitkeep in the release directory, if there is one
-        fs_utils::rm_gitkeep(&version_path)?;
+        rm_gitkeep(&version_path)?;
 
         Self::init_empty_unreleased_dir(path)
     }
 
     fn init_empty_unreleased_dir(path: &Path) -> Result<()> {
         let unreleased_dir = path.join(UNRELEASED_FOLDER);
-        fs_utils::ensure_dir(&unreleased_dir)?;
+        ensure_dir(&unreleased_dir)?;
         let unreleased_gitkeep = unreleased_dir.join(".gitkeep");
         fs::write(&unreleased_gitkeep, "")?;
-        debug!("Wrote {}", fs_utils::path_to_str(&unreleased_gitkeep));
+        debug!("Wrote {}", path_to_str(&unreleased_gitkeep));
         Ok(())
     }
 }
 
 impl fmt::Display for Changelog {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut paragraphs = vec![CHANGELOG_HEADING.to_owned()];
-        if self.is_empty() {
-            paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
-        } else {
-            if let Some(unreleased) = self.unreleased.as_ref() {
-                if !unreleased.is_empty() {
-                    paragraphs.push(UNRELEASED_HEADING.to_owned());
-                    paragraphs.push(unreleased.to_string());
-                }
-            }
-            self.releases
-                .iter()
-                .for_each(|r| paragraphs.push(r.to_string()));
-            if let Some(epilogue) = self.epilogue.as_ref() {
-                paragraphs.push(epilogue.clone());
-            }
-        }
-        writeln!(f, "{}", paragraphs.join("\n\n"))
+        writeln!(f, "{}", self.render_full())
     }
 }
 

@@ -66,6 +66,10 @@ enum Command {
         /// The path to the changelog folder to build.
         #[structopt(default_value = ".changelog")]
         path: PathBuf,
+
+        /// Only render unreleased changes.
+        #[structopt(short, long)]
+        unreleased: bool,
     },
     /// Release any unreleased features.
     Release {
@@ -97,7 +101,7 @@ fn main() {
     .unwrap();
 
     let result = match opt.cmd {
-        Command::Build { path } => build_changelog(path),
+        Command::Build { path, unreleased } => build_changelog(path, unreleased),
         Command::Add {
             editor,
             section,
@@ -115,14 +119,19 @@ fn main() {
         } => prepare_release(&editor, &path, &version),
     };
     if let Err(e) = result {
-        log::error!("Failed with error: {}", e);
+        log::error!("Failed: {}", e);
+        std::process::exit(1);
     }
 }
 
-fn build_changelog<P: AsRef<Path>>(path: P) -> Result<()> {
+fn build_changelog<P: AsRef<Path>>(path: P, unreleased: bool) -> Result<()> {
     let changelog = Changelog::read_from_dir(path)?;
-    print!("{}", changelog);
     log::info!("Success!");
+    if unreleased {
+        println!("{}", changelog.render_unreleased()?);
+    } else {
+        println!("{}", changelog.render_full());
+    }
     Ok(())
 }
 

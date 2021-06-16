@@ -103,6 +103,9 @@ unclog add breaking-changes 24-break-the-api
 # Builds your CHANGELOG.md and writes it to stdout.
 unclog build
 
+# Only render unreleased changes (returns an error if none)
+unclog build --unreleased
+
 # Save the output as your new CHANGELOG.md file.
 # NOTE: All logging output goes to stderr.
 unclog build > CHANGELOG.md
