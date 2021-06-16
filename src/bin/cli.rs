@@ -120,6 +120,7 @@ fn main() {
     };
     if let Err(e) = result {
         log::error!("Failed: {}", e);
+        std::process::exit(1);
     }
 }
 
