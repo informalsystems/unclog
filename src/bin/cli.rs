@@ -126,12 +126,12 @@ fn main() {
 
 fn build_changelog<P: AsRef<Path>>(path: P, unreleased: bool) -> Result<()> {
     let changelog = Changelog::read_from_dir(path)?;
-    if unreleased {
-        print!("{}", changelog.render_unreleased()?);
-    } else {
-        print!("{}", changelog.render_full());
-    }
     log::info!("Success!");
+    if unreleased {
+        println!("{}", changelog.render_unreleased()?);
+    } else {
+        println!("{}", changelog.render_full());
+    }
     Ok(())
 }
 
