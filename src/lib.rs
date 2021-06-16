@@ -10,6 +10,7 @@ pub use changelog::{
 };
 pub use error::Error;
 
+/// Result type used throughout the `unclog` crate.
 pub type Result<T> = std::result::Result<T, Error>;
 
 // Re-exports
