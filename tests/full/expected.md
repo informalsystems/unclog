@@ -10,6 +10,29 @@
 
 * Eat the profile
 
+## v0.2.1
+
+*31 Mar 2021*
+
+### BREAKING CHANGES
+
+* [component2](2nd-component)
+  * Gargle the truffle
+  * Travel the gravel
+  * Laugh at the gaggle
+
+### FEATURES
+
+* General
+  * Nibble the bubbles
+  * Carry the wobbles
+* component1
+  * Fasten the handles
+  * Hasten the sandals
+* [component2](2nd-component)
+  * Waggle the juggle
+  * Drizzle the funnel
+
 ## v0.2.0
 
 *27 Feb 2021*

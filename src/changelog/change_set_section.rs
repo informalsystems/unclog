@@ -1,11 +1,14 @@
-use crate::changelog::fs_utils;
-use crate::error::Error;
-use crate::Entry;
-use crate::CHANGE_SET_ENTRY_EXT;
+use crate::changelog::component_section::package_section_filter;
+use crate::changelog::entry::read_entries_sorted;
+use crate::changelog::fs_utils::{entry_filter, path_to_str, read_and_filter_dir};
+use crate::{
+    ComponentLoader, ComponentSection, Entry, Error, Result, COMPONENT_ENTRY_INDENT,
+    COMPONENT_ENTRY_OVERFLOW_INDENT, COMPONENT_GENERAL_ENTRIES_TITLE, COMPONENT_NAME_PREFIX,
+};
 use log::debug;
 use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use std::{fmt, fs};
+use std::fmt;
+use std::path::Path;
 
 /// A single section in a set of changes.
 ///
@@ -14,64 +17,88 @@ use std::{fmt, fs};
 pub struct ChangeSetSection {
     /// A short, descriptive title for this section (e.g. "BREAKING CHANGES").
     pub title: String,
-    /// The entries in this specific set of changes.
+    /// General entries in the change set section.
     pub entries: Vec<Entry>,
+    /// Entries associated with a specific component/package/submodule.
+    pub component_sections: Vec<ComponentSection>,
 }
 
 impl ChangeSetSection {
     /// Returns whether or not this section is empty.
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.entries.is_empty() && self.component_sections.is_empty()
     }
 
     /// Attempt to read a single change set section from the given directory.
-    pub fn read_from_dir<P: AsRef<Path>>(path: P) -> crate::Result<Self> {
+    pub fn read_from_dir<P, C>(path: P, component_loader: &C) -> Result<Self>
+    where
+        P: AsRef<Path>,
+        C: ComponentLoader,
+    {
         let path = path.as_ref();
         debug!("Loading section {}", path.display());
         let id = path
             .file_name()
             .map(OsStr::to_str)
             .flatten()
-            .ok_or_else(|| Error::CannotObtainName(fs_utils::path_to_str(path)))?
+            .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
         let title = change_set_section_title(id);
-        let entry_files = fs::read_dir(path)?
-            .filter_map(|r| match r {
-                Ok(e) => change_set_entry_filter(e),
-                Err(e) => Some(Err(Error::Io(e))),
-            })
-            .collect::<crate::Result<Vec<PathBuf>>>()?;
-        let mut entries = entry_files
+        let component_section_dirs = read_and_filter_dir(path, package_section_filter)?;
+        let mut component_sections = component_section_dirs
             .into_iter()
-            .map(Entry::read_from_file)
-            .collect::<crate::Result<Vec<Entry>>>()?;
-        // Sort entries by ID in ascending numeric order.
-        entries.sort_by(|a, b| a.id.cmp(&b.id));
-        Ok(Self { title, entries })
+            .map(|path| ComponentSection::read_from_dir(path, component_loader))
+            .collect::<Result<Vec<ComponentSection>>>()?;
+        // Component sections must be sorted by name
+        component_sections.sort_by(|a, b| a.name.cmp(&b.name));
+        let entry_files = read_and_filter_dir(path, entry_filter)?;
+        let entries = read_entries_sorted(entry_files)?;
+        Ok(Self {
+            title,
+            entries,
+            component_sections,
+        })
     }
 }
 
 impl fmt::Display for ChangeSetSection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut entries = Vec::new();
-        self.entries
-            .iter()
-            .for_each(|e| entries.push(e.to_string()));
-        write!(f, "### {}\n\n{}", self.title, entries.join("\n"))
-    }
-}
-
-fn change_set_entry_filter(e: fs::DirEntry) -> Option<crate::Result<PathBuf>> {
-    let meta = match e.metadata() {
-        Ok(m) => m,
-        Err(e) => return Some(Err(Error::Io(e))),
-    };
-    let path = e.path();
-    let ext = path.extension()?.to_str()?;
-    if meta.is_file() && ext == CHANGE_SET_ENTRY_EXT {
-        Some(Ok(path))
-    } else {
-        None
+        let mut lines = Vec::new();
+        // If we have no package sections
+        if self.component_sections.is_empty() {
+            // Just collect the entries as-is
+            lines.extend(
+                self.entries
+                    .iter()
+                    .map(|e| e.to_string())
+                    .collect::<Vec<String>>(),
+            );
+        } else {
+            // If we do have package sections, however, we need to collect the
+            // general entries into their own sub-section.
+            if !self.entries.is_empty() {
+                // For example:
+                // * General
+                lines.push(format!(
+                    "{}{}",
+                    COMPONENT_NAME_PREFIX, COMPONENT_GENERAL_ENTRIES_TITLE
+                ));
+                // Now we indent all general entries.
+                lines.extend(indent_entries(
+                    &self.entries,
+                    COMPONENT_ENTRY_INDENT,
+                    COMPONENT_ENTRY_OVERFLOW_INDENT,
+                ));
+            }
+            // Component-specific sections are already indented
+            lines.extend(
+                self.component_sections
+                    .iter()
+                    .map(|ps| ps.to_string())
+                    .collect::<Vec<String>>(),
+            );
+        }
+        write!(f, "### {}\n\n{}", self.title, lines.join("\n"))
     }
 }
 
@@ -79,9 +106,37 @@ fn change_set_section_title<S: AsRef<str>>(s: S) -> String {
     s.as_ref().to_owned().replace('-', " ").to_uppercase()
 }
 
+// Indents the given string according to `indent` and `overflow_indent`
+// assuming that the string contains one or more bulleted entries in Markdown.
+fn indent_bulleted_str(s: &str, indent: u8, overflow_indent: u8) -> Vec<String> {
+    s.split('\n')
+        .map(|line| {
+            let line_trimmed = line.trim();
+            let i = if line_trimmed.starts_with('*') || line_trimmed.starts_with('-') {
+                indent
+            } else {
+                overflow_indent
+            };
+            format!(
+                "{}{}",
+                (0..i).map(|_| " ").collect::<Vec<&str>>().join(""),
+                line_trimmed
+            )
+        })
+        .collect::<Vec<String>>()
+}
+
+pub(crate) fn indent_entries(entries: &[Entry], indent: u8, overflow_indent: u8) -> Vec<String> {
+    entries
+        .iter()
+        .map(|e| indent_bulleted_str(e.to_string().as_str(), indent, overflow_indent))
+        .flatten()
+        .collect::<Vec<String>>()
+}
+
 #[cfg(test)]
 mod test {
-    use super::change_set_section_title;
+    use super::{change_set_section_title, indent_bulleted_str};
 
     #[test]
     fn change_set_section_title_generation() {
@@ -94,6 +149,37 @@ mod test {
 
         for (s, expected) in cases {
             let actual = change_set_section_title(s);
+            assert_eq!(expected, actual);
+        }
+    }
+
+    #[test]
+    fn entry_indentation() {
+        let cases = vec![
+            (
+                "* Just a single-line entry.",
+                "  * Just a single-line entry.",
+            ),
+            (
+                r#"* A multi-line entry
+  which overflows onto the next line."#,
+                r#"  * A multi-line entry
+    which overflows onto the next line."#,
+            ),
+            (
+                r#"* A complex multi-line entry
+* Which not only has multiple bulleted items
+  which could overflow
+* It also has bulleted items which underflow"#,
+                r#"  * A complex multi-line entry
+  * Which not only has multiple bulleted items
+    which could overflow
+  * It also has bulleted items which underflow"#,
+            ),
+        ];
+
+        for (s, expected) in cases {
+            let actual = indent_bulleted_str(s, 2, 4).join("\n");
             assert_eq!(expected, actual);
         }
     }

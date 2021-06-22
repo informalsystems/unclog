@@ -3,7 +3,10 @@
 use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use unclog::{Changelog, Error, Result, CHANGE_SET_SUMMARY_FILENAME, UNRELEASED_FOLDER};
+use unclog::{
+    Changelog, Error, ProjectType, Result, RustProject, CHANGE_SET_SUMMARY_FILENAME,
+    UNRELEASED_FOLDER,
+};
 
 const RELEASE_SUMMARY_TEMPLATE: &str = r#"<!--
     Add a summary for the release here.
@@ -70,6 +73,11 @@ enum Command {
         /// Only render unreleased changes.
         #[structopt(short, long)]
         unreleased: bool,
+
+        /// The type of project this is. If not supplied, unclog will attempt
+        /// to autodetect it.
+        #[structopt(short = "t", long)]
+        project_type: Option<ProjectType>,
     },
     /// Release any unreleased features.
     Release {
@@ -101,7 +109,11 @@ fn main() {
     .unwrap();
 
     let result = match opt.cmd {
-        Command::Build { path, unreleased } => build_changelog(path, unreleased),
+        Command::Build {
+            path,
+            unreleased,
+            project_type,
+        } => build_changelog(&path, unreleased, project_type),
         Command::Add {
             editor,
             section,
@@ -124,8 +136,20 @@ fn main() {
     }
 }
 
-fn build_changelog<P: AsRef<Path>>(path: P, unreleased: bool) -> Result<()> {
-    let changelog = Changelog::read_from_dir(path)?;
+fn build_changelog(
+    path: &Path,
+    unreleased: bool,
+    maybe_project_type: Option<ProjectType>,
+) -> Result<()> {
+    let project_type = match maybe_project_type {
+        Some(pt) => pt,
+        None => ProjectType::autodetect(path)?,
+    };
+    log::info!("Project type: {}", project_type);
+    let project = match project_type {
+        ProjectType::Rust => RustProject::new(path),
+    };
+    let changelog = project.load_changelog()?;
     log::info!("Success!");
     if unreleased {
         println!("{}", changelog.render_unreleased()?);

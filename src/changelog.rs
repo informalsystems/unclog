@@ -2,19 +2,23 @@
 
 mod change_set;
 mod change_set_section;
+mod component_section;
 mod entry;
-mod fs_utils;
+pub mod fs_utils;
 mod parsing_utils;
 mod release;
 
 pub use change_set::ChangeSet;
 pub use change_set_section::ChangeSetSection;
+pub use component_section::ComponentSection;
 pub use entry::Entry;
 pub use release::Release;
 
-use crate::changelog::fs_utils::{ensure_dir, path_to_str, read_to_string_opt, rm_gitkeep};
+use crate::changelog::fs_utils::{
+    ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
+};
 use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
-use crate::{Error, Result};
+use crate::{ComponentLoader, Error, Result};
 use log::{debug, info};
 use std::path::{Path, PathBuf};
 use std::{fmt, fs};
@@ -26,12 +30,16 @@ pub const EPILOGUE_FILENAME: &str = "epilogue.md";
 pub const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
 pub const CHANGE_SET_ENTRY_EXT: &str = "md";
 pub const EMPTY_CHANGELOG_MSG: &str = "Nothing to see here! Add some entries to get started.";
+pub const COMPONENT_GENERAL_ENTRIES_TITLE: &str = "General";
+pub const COMPONENT_NAME_PREFIX: &str = "* ";
+pub const COMPONENT_ENTRY_INDENT: u8 = 2;
+pub const COMPONENT_ENTRY_OVERFLOW_INDENT: u8 = 4;
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
 pub struct Changelog {
     /// Unreleased changes don't have version information associated with them.
-    pub unreleased: Option<ChangeSet>,
+    pub maybe_unreleased: Option<ChangeSet>,
     /// An ordered list of releases' changes.
     pub releases: Vec<Release>,
     /// Any additional content that must appear at the end of the changelog
@@ -42,7 +50,9 @@ pub struct Changelog {
 impl Changelog {
     /// Checks whether this changelog is empty.
     pub fn is_empty(&self) -> bool {
-        self.unreleased.as_ref().map_or(true, ChangeSet::is_empty)
+        self.maybe_unreleased
+            .as_ref()
+            .map_or(true, ChangeSet::is_empty)
             && self.releases.iter().all(|r| r.changes.is_empty())
             && self.epilogue.as_ref().map_or(true, String::is_empty)
     }
@@ -72,7 +82,7 @@ impl Changelog {
     }
 
     fn unreleased_paragraphs(&self) -> Result<Vec<String>> {
-        if let Some(unreleased) = self.unreleased.as_ref() {
+        if let Some(unreleased) = self.maybe_unreleased.as_ref() {
             if !unreleased.is_empty() {
                 return Ok(vec![UNRELEASED_HEADING.to_owned(), unreleased.to_string()]);
             }
@@ -111,7 +121,11 @@ impl Changelog {
     }
 
     /// Attempt to read a full changelog from the given directory.
-    pub fn read_from_dir<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub fn read_from_dir<P, C>(path: P, component_loader: &C) -> Result<Self>
+    where
+        P: AsRef<Path>,
+        C: ComponentLoader,
+    {
         let path = path.as_ref();
         info!(
             "Attempting to load changelog from directory: {}",
@@ -120,24 +134,20 @@ impl Changelog {
         if !fs::metadata(path)?.is_dir() {
             return Err(Error::ExpectedDir(fs_utils::path_to_str(path)));
         }
-        let unreleased = ChangeSet::read_from_dir_opt(path.join(UNRELEASED_FOLDER))?;
+        let unreleased =
+            ChangeSet::read_from_dir_opt(path.join(UNRELEASED_FOLDER), component_loader)?;
         debug!("Scanning for releases in {}", path.display());
-        let release_dirs = fs::read_dir(path)?
-            .filter_map(|r| match r {
-                Ok(e) => release_dir_filter(e),
-                Err(e) => Some(Err(Error::Io(e))),
-            })
-            .collect::<Result<Vec<PathBuf>>>()?;
+        let release_dirs = read_and_filter_dir(path, release_dir_filter)?;
         let mut releases = release_dirs
             .into_iter()
-            .map(Release::read_from_dir)
+            .map(|path| Release::read_from_dir(path, component_loader))
             .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
         releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
         let epilogue =
             read_to_string_opt(path.join(EPILOGUE_FILENAME))?.map(|e| trim_newlines(&e).to_owned());
         Ok(Self {
-            unreleased,
+            maybe_unreleased: unreleased,
             releases,
             epilogue,
         })
