@@ -1,3 +1,5 @@
+*22 June 2021*
+
 This release refactors some of the internals to provide support for grouping
 entries by way of their respective **components**. A "component" is effectively
 a module or sub-package within a project. More concretely, in a Rust project
