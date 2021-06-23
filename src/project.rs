@@ -138,8 +138,13 @@ impl Default for RustComponentLoader {
 impl ComponentLoader for RustComponentLoader {
     fn get_component(&mut self, name: &str) -> Result<Option<Component>> {
         if let Some(maybe_component) = self.cache.get(name) {
+            debug!("Using cached component lookup for: {}", name);
             return Ok(maybe_component.clone());
         }
+        debug!(
+            "Component \"{}\" not found in cache. Calling cargo...",
+            name
+        );
         let maybe_component = match get_crate_manifest_path(name) {
             Ok(abs_path) => {
                 let cwd = std::env::current_dir()?;
