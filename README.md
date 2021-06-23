@@ -42,27 +42,34 @@ cargo install --path .
 An example layout for a project's `.changelog` folder is as follows:
 
 ```
-.changelog/                - The project's .changelog folder, in the root of the repo.
-|__ unreleased/            - Changes to be released in the next version.
-|   |__ breaking-changes/  - "BREAKING CHANGES" section entries.
-|   |   |__ 890-block.md   - An entry in the "BREAKING CHANGES" section.
+.changelog/                   - The project's .changelog folder, in the root of the repo.
+|__ unreleased/               - Changes to be released in the next version.
+|   |__ breaking-changes/     - "BREAKING CHANGES" section entries.
+|   |   |__ 890-block.md      - An entry in the "BREAKING CHANGES" section.
 |   |
-|   |__ bug-fixes/         - "BUG FIXES" section entries.
-|   |__ features/          - "FEATURES" section entries.
+|   |__ bug-fixes/            - "BUG FIXES" section entries.
+|   |   |__ module1/          - "BUG FIXES" section entries specific to "module1".
+|   |       |__ 745-rename.md - An entry in the "BUG FIXES" section under "module1".
+|   |__ features/             - "FEATURES" section entries.
 |   |
-|   |__ summary.md         - A summary of the next release.
+|   |__ summary.md            - A summary of the next release.
 |
-|__ v0.1.0/                - Changes released historically in v0.1.0.
-|   |__ breaking-changes/  - "BREAKING CHANGES" section entries for v0.1.0.
-|   |   |__ 467-api.md     - An entry in the "BREAKING CHANGES" section for v0.1.0.
-|   |   |__ 479-rpc.md     - Another entry in the "BREAKING CHANGES" section for v0.1.0.
+|__ v0.1.0/                   - Changes released historically in v0.1.0.
+|   |__ breaking-changes/     - "BREAKING CHANGES" section entries for v0.1.0.
+|   |   |__ 467-api.md        - An entry in the "BREAKING CHANGES" section for v0.1.0.
+|   |   |__ 479-rpc.md        - Another entry in the "BREAKING CHANGES" section for v0.1.0.
 |   |
-|   |__ bug-fixes/         - "BUG FIXES" section entries for v0.1.0.
+|   |__ bug-fixes/            - "BUG FIXES" section entries for v0.1.0.
 |   |
-|   |__ summary.md         - A summary of release v0.1.0.
+|   |__ summary.md            - A summary of release v0.1.0.
 |
-|__ epilogue.md            - Any content to be added to the end of the generated CHANGELOG.
+|__ epilogue.md               - Any content to be added to the end of the generated CHANGELOG.
 ```
+
+For a more detailed example, see the [`tests/full`](./tests/full) folder for
+the primary integration test that uses the most features/functionality. The
+file [`tests/full/expected.md`](./tests/full/expected.md) is the expected
+output when building the files in `tests/full`.
 
 ### CLI
 
@@ -133,7 +140,7 @@ as a library instead without the CLI:
 
 ```toml
 [dependencies]
-unclog = { version = "0.1.0", default-features = false }
+unclog = { version = "0.2", default-features = false }
 ```
 
 ## License
