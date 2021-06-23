@@ -155,12 +155,19 @@ impl Changelog {
 
     /// Adds a changelog entry with the given ID to the specified section in
     /// the `unreleased` folder.
-    pub fn add_unreleased_entry<P, S, I, C>(path: P, section: S, id: I, content: C) -> Result<()>
+    pub fn add_unreleased_entry<P, S, C, I, O>(
+        path: P,
+        section: S,
+        component: Option<C>,
+        id: I,
+        content: O,
+    ) -> Result<()>
     where
         P: AsRef<Path>,
         S: AsRef<str>,
-        I: AsRef<str>,
         C: AsRef<str>,
+        I: AsRef<str>,
+        O: AsRef<str>,
     {
         let path = path.as_ref();
         let unreleased_path = path.join(UNRELEASED_FOLDER);
@@ -168,7 +175,12 @@ impl Changelog {
         let section = section.as_ref();
         let section_path = unreleased_path.join(section);
         ensure_dir(&section_path)?;
-        let entry_path = section_path.join(entry_id_to_filename(id));
+        let mut entry_dir = section_path;
+        if let Some(component) = component {
+            entry_dir = entry_dir.join(component.as_ref());
+            ensure_dir(&entry_dir)?;
+        }
+        let entry_path = entry_dir.join(entry_id_to_filename(id));
         // We don't want to overwrite any existing entries
         if fs::metadata(&entry_path).is_ok() {
             return Err(Error::FileExists(path_to_str(&entry_path)));
@@ -179,17 +191,25 @@ impl Changelog {
     }
 
     /// Compute the file system path to the entry with the given parameters.
-    pub fn get_entry_path<P, R, S, I>(path: P, release: R, section: S, id: I) -> PathBuf
+    pub fn get_entry_path<P, R, S, C, I>(
+        path: P,
+        release: R,
+        section: S,
+        component: Option<C>,
+        id: I,
+    ) -> PathBuf
     where
         P: AsRef<Path>,
         R: AsRef<str>,
         S: AsRef<str>,
+        C: AsRef<str>,
         I: AsRef<str>,
     {
-        path.as_ref()
-            .join(release.as_ref())
-            .join(section.as_ref())
-            .join(entry_id_to_filename(id))
+        let mut path = path.as_ref().join(release.as_ref()).join(section.as_ref());
+        if let Some(component) = component {
+            path = path.join(component.as_ref());
+        }
+        path.join(entry_id_to_filename(id))
     }
 
     /// Moves the `unreleased` folder from our changelog to a directory whose

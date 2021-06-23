@@ -52,6 +52,10 @@ enum Command {
         #[structopt(long, env = "EDITOR")]
         editor: PathBuf,
 
+        /// The component to which this entry should be added
+        #[structopt(short, long)]
+        component: Option<String>,
+
         /// The ID of the section to which the change must be added (e.g.
         /// "breaking-changes").
         section: String,
@@ -116,10 +120,11 @@ fn main() {
         } => build_changelog(&path, unreleased, project_type),
         Command::Add {
             editor,
+            component,
             section,
             id,
             path,
-        } => add_unreleased_entry(&editor, &path, &section, &id),
+        } => add_unreleased_entry(&editor, &path, &section, component, &id),
         Command::Init {
             epilogue_path,
             path,
@@ -159,8 +164,15 @@ fn build_changelog(
     Ok(())
 }
 
-fn add_unreleased_entry(editor: &Path, path: &Path, section: &str, id: &str) -> Result<()> {
-    let entry_path = Changelog::get_entry_path(path, UNRELEASED_FOLDER, section, id);
+fn add_unreleased_entry(
+    editor: &Path,
+    path: &Path,
+    section: &str,
+    component: Option<String>,
+    id: &str,
+) -> Result<()> {
+    let entry_path =
+        Changelog::get_entry_path(path, UNRELEASED_FOLDER, section, component.clone(), id);
     if std::fs::metadata(&entry_path).is_ok() {
         return Err(Error::FileExists(entry_path.display().to_string()));
     }
@@ -181,7 +193,7 @@ fn add_unreleased_entry(editor: &Path, path: &Path, section: &str, id: &str) -> 
         return Ok(());
     }
 
-    Changelog::add_unreleased_entry(path, section, id, &tmpfile_content)
+    Changelog::add_unreleased_entry(path, section, component, id, &tmpfile_content)
 }
 
 fn prepare_release(editor: &Path, path: &Path, version: &str) -> Result<()> {
