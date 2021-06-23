@@ -143,7 +143,7 @@ fn build_changelog(
 ) -> Result<()> {
     let project_type = match maybe_project_type {
         Some(pt) => pt,
-        None => ProjectType::autodetect(path)?,
+        None => ProjectType::autodetect(std::fs::canonicalize(path)?.parent().unwrap())?,
     };
     log::info!("Project type: {}", project_type);
     let project = match project_type {

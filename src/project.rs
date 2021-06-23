@@ -4,6 +4,7 @@
 use crate::cargo::get_crate_manifest_path;
 use crate::changelog::fs_utils::get_relative_path;
 use crate::{Changelog, Error, Result};
+use log::debug;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -17,6 +18,10 @@ impl ProjectType {
     /// Attempts to autodetect the type of project in the given path.
     pub fn autodetect<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
+        debug!(
+            "Attempting to autodetect project in path: {}",
+            path.to_string_lossy()
+        );
         if Self::is_rust_project(path)? {
             Ok(Self::Rust)
         } else {
@@ -25,8 +30,8 @@ impl ProjectType {
     }
 
     fn is_rust_project(path: &Path) -> Result<bool> {
-        let meta = std::fs::metadata(path.join("Cargo.toml"))?;
-        if meta.is_file() {
+        let maybe_meta = std::fs::metadata(path.join("Cargo.toml"));
+        if maybe_meta.map(|meta| meta.is_file()).unwrap_or(false) {
             Ok(true)
         } else {
             Ok(false)
