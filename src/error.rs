@@ -1,5 +1,6 @@
 //! Errors that can be produced by unclog.
 
+use std::path::PathBuf;
 use thiserror::Error;
 
 /// All error variants that can be produced by unclog.
@@ -27,4 +28,18 @@ pub enum Error {
     InvalidEntryNumber(#[from] std::num::ParseIntError),
     #[error("no unreleased entries yet")]
     NoUnreleasedEntries,
+    #[error("non-UTF8 characters in string")]
+    NonUtf8String(#[from] std::string::FromUtf8Error),
+    #[error("non-zero process exit code when executing {0}: {1}")]
+    NonZeroExitCode(String, i32),
+    #[error("failed to parse JSON: {0}")]
+    JsonParsingFailed(#[from] serde_json::Error),
+    #[error("no such cargo package: {0}")]
+    NoSuchCargoPackage(String),
+    #[error("failed to get relative package path: {0}")]
+    StripPrefixError(#[from] std::path::StripPrefixError),
+    #[error("unrecognized project type: {0}")]
+    UnrecognizedProjectType(String),
+    #[error("cannot autodetect project type in path: {0}")]
+    CannotAutodetectProjectType(PathBuf),
 }

@@ -1,10 +1,10 @@
 use crate::changelog::fs_utils::{path_to_str, read_to_string};
 use crate::changelog::parsing_utils::trim_newlines;
-use crate::error::Error;
+use crate::{Error, Result};
 use log::debug;
 use std::ffi::OsStr;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 /// A single entry in a set of changes.
@@ -19,7 +19,7 @@ pub struct Entry {
 impl Entry {
     /// Attempt to read a single entry for a change set section from the given
     /// file.
-    pub fn read_from_file<P: AsRef<Path>>(path: P) -> crate::Result<Self> {
+    pub fn read_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         debug!("Loading entry from {}", path.display());
         Ok(Self {
@@ -40,7 +40,7 @@ impl fmt::Display for Entry {
     }
 }
 
-fn extract_entry_id<S: AsRef<str>>(s: S) -> crate::Result<u64> {
+fn extract_entry_id<S: AsRef<str>>(s: S) -> Result<u64> {
     let s = s.as_ref();
     let num_digits = s
         .chars()
@@ -48,6 +48,16 @@ fn extract_entry_id<S: AsRef<str>>(s: S) -> crate::Result<u64> {
         .ok_or_else(|| Error::InvalidEntryId(s.to_owned()))?;
     let digits = &s[..num_digits];
     Ok(u64::from_str(digits)?)
+}
+
+pub(crate) fn read_entries_sorted(entry_files: Vec<PathBuf>) -> Result<Vec<Entry>> {
+    let mut entries = entry_files
+        .into_iter()
+        .map(Entry::read_from_file)
+        .collect::<Result<Vec<Entry>>>()?;
+    // Sort entries by ID in ascending numeric order.
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(entries)
 }
 
 #[cfg(test)]

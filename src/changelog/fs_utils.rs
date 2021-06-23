@@ -1,19 +1,19 @@
 //! File system-related utilities to help with manipulating changelogs.
 
-use crate::error::Error;
+use crate::{Error, Result, CHANGE_SET_ENTRY_EXT};
 use log::{debug, info};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub(crate) fn path_to_str<P: AsRef<Path>>(path: P) -> String {
     path.as_ref().to_string_lossy().to_string()
 }
 
-pub(crate) fn read_to_string<P: AsRef<Path>>(path: P) -> crate::Result<String> {
+pub(crate) fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String> {
     Ok(fs::read_to_string(path)?)
 }
 
-pub(crate) fn read_to_string_opt<P: AsRef<Path>>(path: P) -> crate::Result<Option<String>> {
+pub(crate) fn read_to_string_opt<P: AsRef<Path>>(path: P) -> Result<Option<String>> {
     let path = path.as_ref();
     if fs::metadata(path).is_err() {
         return Ok(None);
@@ -21,7 +21,7 @@ pub(crate) fn read_to_string_opt<P: AsRef<Path>>(path: P) -> crate::Result<Optio
     read_to_string(path).map(Some)
 }
 
-pub(crate) fn ensure_dir(path: &Path) -> crate::Result<()> {
+pub(crate) fn ensure_dir(path: &Path) -> Result<()> {
     if fs::metadata(path).is_err() {
         fs::create_dir(path)?;
         info!("Created directory: {}", path_to_str(path));
@@ -32,11 +32,60 @@ pub(crate) fn ensure_dir(path: &Path) -> crate::Result<()> {
     Ok(())
 }
 
-pub(crate) fn rm_gitkeep(path: &Path) -> crate::Result<()> {
+pub(crate) fn rm_gitkeep(path: &Path) -> Result<()> {
     let path = path.join(".gitkeep");
     if fs::metadata(&path).is_ok() {
         fs::remove_file(&path)?;
         debug!("Removed .gitkeep file from: {}", path_to_str(&path));
     }
     Ok(())
+}
+
+pub(crate) fn read_and_filter_dir<F>(path: &Path, filter: F) -> Result<Vec<PathBuf>>
+where
+    F: Fn(fs::DirEntry) -> Option<Result<PathBuf>>,
+{
+    fs::read_dir(path)?
+        .filter_map(|r| match r {
+            Ok(e) => filter(e),
+            Err(e) => Some(Err(Error::Io(e))),
+        })
+        .collect::<Result<Vec<PathBuf>>>()
+}
+
+pub(crate) fn entry_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
+    let meta = match e.metadata() {
+        Ok(m) => m,
+        Err(e) => return Some(Err(Error::Io(e))),
+    };
+    let path = e.path();
+    let ext = path.extension()?.to_str()?;
+    if meta.is_file() && ext == CHANGE_SET_ENTRY_EXT {
+        Some(Ok(path))
+    } else {
+        None
+    }
+}
+
+pub(crate) fn get_relative_path<P: AsRef<Path>, Q: AsRef<Path>>(
+    path: P,
+    prefix: Q,
+) -> Result<PathBuf> {
+    Ok(path.as_ref().strip_prefix(prefix.as_ref())?.to_path_buf())
+}
+
+#[cfg(test)]
+mod test {
+    use super::get_relative_path;
+
+    #[test]
+    fn relative_path_extraction() {
+        assert_eq!(
+            "mypackage",
+            get_relative_path("/path/to/mypackage", "/path/to")
+                .unwrap()
+                .to_str()
+                .unwrap()
+        )
+    }
 }
