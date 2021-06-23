@@ -27,7 +27,7 @@ impl ChangeSet {
     }
 
     /// Attempt to read a single change set from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &C) -> Result<Self>
+    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
     where
         P: AsRef<Path>,
         C: ComponentLoader,
@@ -52,7 +52,7 @@ impl ChangeSet {
     /// Attempt to read a single change set from the given directory, like
     /// [`ChangeSet::read_from_dir`], but return `Option::None` if the
     /// directory does not exist.
-    pub fn read_from_dir_opt<P, C>(path: P, component_loader: &C) -> Result<Option<Self>>
+    pub fn read_from_dir_opt<P, C>(path: P, component_loader: &mut C) -> Result<Option<Self>>
     where
         P: AsRef<Path>,
         C: ComponentLoader,

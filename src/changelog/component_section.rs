@@ -29,7 +29,7 @@ impl ComponentSection {
     }
 
     /// Attempt to load this component section from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &C) -> Result<Self>
+    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
     where
         P: AsRef<Path>,
         C: ComponentLoader,

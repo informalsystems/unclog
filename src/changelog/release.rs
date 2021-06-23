@@ -18,7 +18,7 @@ pub struct Release {
 
 impl Release {
     /// Attempt to read a single release from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &C) -> Result<Self>
+    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
     where
         P: AsRef<Path>,
         C: ComponentLoader,

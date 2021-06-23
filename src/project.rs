@@ -5,6 +5,7 @@ use crate::cargo::get_crate_manifest_path;
 use crate::changelog::fs_utils::get_relative_path;
 use crate::{Changelog, Error, Result};
 use log::debug;
+use std::collections::HashMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -83,15 +84,17 @@ impl<C: ComponentLoader> Project<C> {
     }
 
     /// Attempt to load the changelog associated with this project.
-    pub fn load_changelog(&self) -> Result<Changelog> {
-        Changelog::read_from_dir(&self.path, &self.component_loader)
+    ///
+    /// Consumes the project.
+    pub fn read_changelog(mut self) -> Result<Changelog> {
+        Changelog::read_from_dir(&self.path, &mut self.component_loader)
     }
 }
 
 impl Project<RustComponentLoader> {
     /// Create a new Rust-based project.
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        Self::new_with_component_loader(path, RustComponentLoader)
+        Self::new_with_component_loader(path, RustComponentLoader::default())
     }
 }
 
@@ -102,7 +105,7 @@ pub trait ComponentLoader {
     /// Attempts to load the component with the given name.
     ///
     /// If the component does not exist, this returns `Ok(None)`.
-    fn get_component(&self, name: &str) -> Result<Option<Component>>;
+    fn get_component(&mut self, name: &str) -> Result<Option<Component>>;
 }
 
 /// A single component of a project.
@@ -118,21 +121,38 @@ pub struct Component {
 ///
 /// Facilitates loading of components from the current working directory.
 #[derive(Debug, Clone)]
-pub struct RustComponentLoader;
+pub struct RustComponentLoader {
+    // We cache lookups of components' details because executing `cargo` as a
+    // subprocess can be pretty expensive.
+    cache: HashMap<String, Option<Component>>,
+}
+
+impl Default for RustComponentLoader {
+    fn default() -> Self {
+        Self {
+            cache: HashMap::new(),
+        }
+    }
+}
 
 impl ComponentLoader for RustComponentLoader {
-    fn get_component(&self, name: &str) -> Result<Option<Component>> {
-        Ok(Some(Component {
-            name: name.to_owned(),
-            rel_path: match get_crate_manifest_path(name) {
-                Ok(abs_path) => {
-                    let cwd = std::env::current_dir()?;
-                    let parent_path = abs_path.parent().unwrap();
-                    get_relative_path(parent_path, cwd)?
-                }
-                Err(Error::NoSuchCargoPackage(_)) => return Ok(None),
-                Err(e) => return Err(e),
-            },
-        }))
+    fn get_component(&mut self, name: &str) -> Result<Option<Component>> {
+        if let Some(maybe_component) = self.cache.get(name) {
+            return Ok(maybe_component.clone());
+        }
+        let maybe_component = match get_crate_manifest_path(name) {
+            Ok(abs_path) => {
+                let cwd = std::env::current_dir()?;
+                let parent_path = abs_path.parent().unwrap();
+                Some(Component {
+                    name: name.to_owned(),
+                    rel_path: get_relative_path(parent_path, cwd)?,
+                })
+            }
+            Err(Error::NoSuchCargoPackage(_)) => None,
+            Err(e) => return Err(e),
+        };
+        self.cache.insert(name.to_owned(), maybe_component.clone());
+        Ok(maybe_component)
     }
 }

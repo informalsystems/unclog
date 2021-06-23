@@ -149,7 +149,7 @@ fn build_changelog(
     let project = match project_type {
         ProjectType::Rust => RustProject::new(path),
     };
-    let changelog = project.load_changelog()?;
+    let changelog = project.read_changelog()?;
     log::info!("Success!");
     if unreleased {
         println!("{}", changelog.render_unreleased()?);

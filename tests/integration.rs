@@ -6,7 +6,7 @@ use unclog::{Component, ComponentLoader, Project, Result};
 struct MockLoader;
 
 impl ComponentLoader for MockLoader {
-    fn get_component(&self, name: &str) -> Result<Option<Component>> {
+    fn get_component(&mut self, name: &str) -> Result<Option<Component>> {
         match name {
             "component2" => Ok(Some(Component {
                 name: "component2".to_owned(),
@@ -21,7 +21,7 @@ impl ComponentLoader for MockLoader {
 fn full() {
     env_logger::init();
     let project = Project::new_with_component_loader("./tests/full", MockLoader);
-    let changelog = project.load_changelog().unwrap();
+    let changelog = project.read_changelog().unwrap();
     let expected = std::fs::read_to_string("./tests/full/expected.md").unwrap();
     assert_eq!(expected, changelog.to_string());
 }
