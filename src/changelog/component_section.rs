@@ -5,6 +5,7 @@ use crate::{
     ComponentLoader, Entry, Error, Result, COMPONENT_ENTRY_INDENT, COMPONENT_ENTRY_OVERFLOW_INDENT,
     COMPONENT_NAME_PREFIX,
 };
+use log::debug;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::{fmt, fs};
@@ -41,8 +42,13 @@ impl ComponentSection {
             .flatten()
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
+        debug!("Looking up component: {}", name);
         let maybe_component = component_loader.get_component(&name)?;
         let maybe_component_path = maybe_component.map(|c| c.rel_path).map(path_to_str);
+        match &maybe_component_path {
+            Some(component_path) => debug!("Found component \"{}\" in: {}", name, component_path),
+            None => debug!("Could not find component \"{}\"", name),
+        }
         let entry_files = read_and_filter_dir(path, entry_filter)?;
         let entries = read_entries_sorted(entry_files)?;
         Ok(Self {
