@@ -1,6 +1,20 @@
 # CHANGELOG
 
+## v0.2.1
+
+*23 July 2021*
+
+A minor release to augment the `add` command's functionality.
+
+### FEATURES
+
+* Added the `--component` flag to the `add` command so that you can now specify
+  a component when adding a new entry.
+  ([#6](https://github.com/informalsystems/unclog/issues/6))
+
 ## v0.2.0
+
+*22 June 2021*
 
 This release refactors some of the internals to provide support for grouping
 entries by way of their respective **components**. A "component" is effectively
