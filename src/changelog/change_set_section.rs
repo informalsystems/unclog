@@ -78,7 +78,7 @@ impl fmt::Display for ChangeSetSection {
             // general entries into their own sub-section.
             if !self.entries.is_empty() {
                 // For example:
-                // * General
+                // - General
                 lines.push(format!(
                     "{}{}",
                     COMPONENT_NAME_PREFIX, COMPONENT_GENERAL_ENTRIES_TITLE
@@ -157,24 +157,24 @@ mod test {
     fn entry_indentation() {
         let cases = vec![
             (
-                "* Just a single-line entry.",
-                "  * Just a single-line entry.",
+                "- Just a single-line entry.",
+                "  - Just a single-line entry.",
             ),
             (
-                r#"* A multi-line entry
+                r#"- A multi-line entry
   which overflows onto the next line."#,
-                r#"  * A multi-line entry
+                r#"  - A multi-line entry
     which overflows onto the next line."#,
             ),
             (
-                r#"* A complex multi-line entry
-* Which not only has multiple bulleted items
+                r#"- A complex multi-line entry
+- Which not only has multiple bulleted items
   which could overflow
-* It also has bulleted items which underflow"#,
-                r#"  * A complex multi-line entry
-  * Which not only has multiple bulleted items
+- It also has bulleted items which underflow"#,
+                r#"  - A complex multi-line entry
+  - Which not only has multiple bulleted items
     which could overflow
-  * It also has bulleted items which underflow"#,
+  - It also has bulleted items which underflow"#,
             ),
         ];
 

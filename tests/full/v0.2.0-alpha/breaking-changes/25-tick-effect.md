@@ -1,1 +1,1 @@
-* Tick the effect in actual chemicals
+- Tick the effect in actual chemicals

@@ -1,1 +1,1 @@
-* Hasten the sandals
+- Hasten the sandals

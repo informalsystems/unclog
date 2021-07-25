@@ -1,1 +1,1 @@
-* Drizzle the funnel
+- Drizzle the funnel

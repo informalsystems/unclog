@@ -31,7 +31,7 @@ pub const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
 pub const CHANGE_SET_ENTRY_EXT: &str = "md";
 pub const EMPTY_CHANGELOG_MSG: &str = "Nothing to see here! Add some entries to get started.";
 pub const COMPONENT_GENERAL_ENTRIES_TITLE: &str = "General";
-pub const COMPONENT_NAME_PREFIX: &str = "* ";
+pub const COMPONENT_NAME_PREFIX: &str = "- ";
 pub const COMPONENT_ENTRY_INDENT: u8 = 2;
 pub const COMPONENT_ENTRY_OVERFLOW_INDENT: u8 = 4;
 

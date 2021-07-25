@@ -1,1 +1,1 @@
-* Educate the specialist vigorously
+- Educate the specialist vigorously

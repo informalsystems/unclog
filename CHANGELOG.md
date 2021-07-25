@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v0.3.0
+
+This is a minor breaking release that now favours the use of hyphens (`-`) in
+bulleted Markdown lists over asterisks (`*`). In future this will probably be
+configurable.
+
+### BREAKING CHANGES
+
+- Replace all asterisks with hyphens for Markdown-based bulleted lists (related
+  to [#2](https://github.com/informalsystems/unclog/issues/2))
+
 ## v0.2.1
 
 *23 July 2021*

@@ -94,15 +94,15 @@ mod test {
     use super::ComponentSection;
     use crate::Entry;
 
-    const RENDERED_WITH_PATH: &str = r#"* [some-project](./some-project/)
-  * Issue 1
-  * Issue 2
-  * Issue 3"#;
+    const RENDERED_WITH_PATH: &str = r#"- [some-project](./some-project/)
+  - Issue 1
+  - Issue 2
+  - Issue 3"#;
 
-    const RENDERED_WITHOUT_PATH: &str = r#"* some-project
-  * Issue 1
-  * Issue 2
-  * Issue 3"#;
+    const RENDERED_WITHOUT_PATH: &str = r#"- some-project
+  - Issue 1
+  - Issue 2
+  - Issue 3"#;
 
     #[test]
     fn with_path() {
@@ -128,15 +128,15 @@ mod test {
         vec![
             Entry {
                 id: 1,
-                details: "* Issue 1".to_string(),
+                details: "- Issue 1".to_string(),
             },
             Entry {
                 id: 2,
-                details: "* Issue 2".to_string(),
+                details: "- Issue 2".to_string(),
             },
             Entry {
                 id: 3,
-                details: "* Issue 3".to_string(),
+                details: "- Issue 3".to_string(),
             },
         ]
     }

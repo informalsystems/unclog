@@ -1,1 +1,1 @@
-* Add serene brown drops to the scattered magazine
+- Add serene brown drops to the scattered magazine

@@ -4,11 +4,11 @@
 
 ### FEATURES
 
-* Travel through space as a beneficial example
+- Travel through space as a beneficial example
 
 ### IMPROVEMENTS
 
-* Eat the profile
+- Eat the profile
 
 ## v0.2.1
 
@@ -16,22 +16,22 @@
 
 ### BREAKING CHANGES
 
-* [component2](2nd-component)
-  * Gargle the truffle
-  * Travel the gravel
-  * Laugh at the gaggle
+- [component2](2nd-component)
+  - Gargle the truffle
+  - Travel the gravel
+  - Laugh at the gaggle
 
 ### FEATURES
 
-* General
-  * Nibble the bubbles
-  * Carry the wobbles
-* component1
-  * Fasten the handles
-  * Hasten the sandals
-* [component2](2nd-component)
-  * Waggle the juggle
-  * Drizzle the funnel
+- General
+  - Nibble the bubbles
+  - Carry the wobbles
+- component1
+  - Fasten the handles
+  - Hasten the sandals
+- [component2](2nd-component)
+  - Waggle the juggle
+  - Drizzle the funnel
 
 ## v0.2.0
 
@@ -41,13 +41,13 @@ It's finally out, yay!
 
 ### BREAKING CHANGES
 
-* Let the tune meet the unlawful disaster
-* Educate the specialist vigorously
+- Let the tune meet the unlawful disaster
+- Educate the specialist vigorously
 
 ### FEATURES
 
-* Stir the engineer with the foolish sound
-* Attend the entry with an ambitious blank
+- Stir the engineer with the foolish sound
+- Attend the entry with an ambitious blank
 
 ## v0.2.0-beta
 
@@ -57,12 +57,12 @@ This is the second pre-release of v0.2.0.
 
 ### FEATURES
 
-* Balance the antique garbage
-* Spark the chair in the storm
+- Balance the antique garbage
+- Spark the chair in the storm
 
 ### IMPROVEMENTS
 
-* Allow the fan to meet his shoe
+- Allow the fan to meet his shoe
 
 ## v0.2.0-alpha
 
@@ -72,13 +72,13 @@ This is the first pre-release of our upcoming v0.2.0 release.
 
 ### BREAKING CHANGES
 
-* Add serene brown drops to the scattered magazine
-* Tick the effect in actual chemicals
-* Eat the resort and cry
+- Add serene brown drops to the scattered magazine
+- Tick the effect in actual chemicals
+- Eat the resort and cry
 
 ### IMPROVEMENTS
 
-* Hover over the historian with a melodic mix
+- Hover over the historian with a melodic mix
   that travels over multiple lines.
 
 ## v0.1.0

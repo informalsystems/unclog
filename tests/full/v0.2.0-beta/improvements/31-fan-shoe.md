@@ -1,1 +1,1 @@
-* Allow the fan to meet his shoe
+- Allow the fan to meet his shoe

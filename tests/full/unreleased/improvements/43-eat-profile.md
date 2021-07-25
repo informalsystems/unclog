@@ -1,1 +1,1 @@
-* Eat the profile
+- Eat the profile
