@@ -1,1 +1,1 @@
-* Balance the antique garbage
+- Balance the antique garbage

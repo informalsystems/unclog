@@ -1,1 +1,1 @@
-* Attend the entry with an ambitious blank
+- Attend the entry with an ambitious blank

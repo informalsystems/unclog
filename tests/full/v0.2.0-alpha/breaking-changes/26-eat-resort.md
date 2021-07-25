@@ -1,1 +1,1 @@
-* Eat the resort and cry
+- Eat the resort and cry

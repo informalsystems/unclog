@@ -1,1 +1,1 @@
-* Fasten the handles
+- Fasten the handles

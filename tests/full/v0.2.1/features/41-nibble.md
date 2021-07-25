@@ -1,1 +1,1 @@
-* Nibble the bubbles
+- Nibble the bubbles
