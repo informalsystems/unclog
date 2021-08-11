@@ -140,7 +140,7 @@ as a library instead without the CLI:
 
 ```toml
 [dependencies]
-unclog = { version = "0.2", default-features = false }
+unclog = { version = "0.3", default-features = false }
 ```
 
 ## License
