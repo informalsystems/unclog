@@ -14,9 +14,19 @@ working on multiple PRs simultaneously.
 
 It's assumed your changelog will be output in **Markdown** format.
 
+### Why not just use the Git commit history?
+
+Many other tools that provide similar functionality focus on extracting
+changelog entries from the project's Git commit history. Why don't we just do
+this?
+
+We find value in targeting different audiences with each kind of content, and
+being able to tailor content to each audience: Git commit histories for our
+*developers*, and changelogs for our *users*.
+
 ## Requirements
 
-* Rust v1.52.1+ with `cargo`
+* Rust v1.54+ with `cargo`
 
 ## Installation
 
@@ -103,6 +113,15 @@ unclog add features 23-some-new-feature
 unclog add breaking-changes 24-break-the-api
 ```
 
+The format of an entry is currently recommended as the following (in Markdown):
+
+```markdown
+- A user-oriented description of the change ([#123](https://github.com/someone/someproject/issues/123))
+```
+
+The `#123` and its corresponding link is ideally a link to the issue being
+resolved. If there's no issue, then reference the PR.
+
 #### Building a changelog
 
 ```bash
@@ -140,7 +159,7 @@ as a library instead without the CLI:
 
 ```toml
 [dependencies]
-unclog = { version = "0.2", default-features = false }
+unclog = { version = "0.3", default-features = false }
 ```
 
 ## License
