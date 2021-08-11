@@ -219,7 +219,7 @@ impl Changelog {
         let version = version.as_ref();
 
         // Validate the version
-        let _ = semver::Version::parse(&extract_release_version(version)?)?;
+        let _ = semver::Version::parse(extract_release_version(version)?)?;
 
         let version_path = path.join(version);
         // The target version path must not yet exist
