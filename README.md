@@ -113,6 +113,15 @@ unclog add features 23-some-new-feature
 unclog add breaking-changes 24-break-the-api
 ```
 
+The format of an entry is currently recommended as the following (in Markdown):
+
+```markdown
+- A user-oriented description of the change ([#123](https://github.com/someone/someproject/issues/123))
+```
+
+The `#123` and its corresponding link is ideally a link to the issue being
+resolved. If there's no issue, then reference the PR.
+
 #### Building a changelog
 
 ```bash
