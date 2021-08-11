@@ -14,6 +14,16 @@ working on multiple PRs simultaneously.
 
 It's assumed your changelog will be output in **Markdown** format.
 
+### Why not just use the Git commit history?
+
+Many other tools that provide similar functionality focus on extracting
+changelog entries from the project's Git commit history. Why don't we just do
+this?
+
+We find value in targeting different audiences with each kind of content, and
+being able to tailor content to each audience: Git commit histories for our
+*developers*, and changelogs for our *users*.
+
 ## Requirements
 
 * Rust v1.52.1+ with `cargo`
