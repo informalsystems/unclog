@@ -26,7 +26,7 @@ being able to tailor content to each audience: Git commit histories for our
 
 ## Requirements
 
-* Rust v1.52.1+ with `cargo`
+* Rust v1.54+ with `cargo`
 
 ## Installation
 
