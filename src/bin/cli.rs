@@ -74,7 +74,7 @@ enum Command {
 
         /// The type of project this is. If not supplied, unclog will attempt
         /// to autodetect it.
-        #[structopt(short = "t", long)]
+        #[structopt(name = "type", short, long)]
         project_type: Option<ProjectType>,
     },
     /// Release any unreleased features.
