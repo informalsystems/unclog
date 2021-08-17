@@ -26,6 +26,10 @@ const ADD_CHANGE_TEMPLATE: &str = r#"<!--
 
 #[derive(StructOpt)]
 struct Opt {
+    /// The path to the changelog folder.
+    #[structopt(short, long, default_value = ".changelog")]
+    path: PathBuf,
+
     /// Increase output logging verbosity to DEBUG level.
     #[structopt(short, long)]
     verbose: bool,
@@ -41,10 +45,6 @@ enum Command {
         /// An optional epilogue to add to the new changelog.
         #[structopt(short, long)]
         epilogue_path: Option<PathBuf>,
-
-        /// The path to the changelog folder to initialize.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
     },
     /// Add a change to the unreleased set of changes.
     Add {
@@ -63,17 +63,9 @@ enum Command {
         /// The ID of the change to add, which should include the number of the
         /// issue or PR to which the change applies (e.g. "820-change-api").
         id: String,
-
-        /// The path to the changelog folder to build.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
     },
     /// Build the changelog from the input path and write the output to stdout.
     Build {
-        /// The path to the changelog folder to build.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
-
         /// Only render unreleased changes.
         #[structopt(short, long)]
         unreleased: bool,
@@ -91,10 +83,6 @@ enum Command {
 
         /// The version string to use for the new release (e.g. "v0.1.0").
         version: String,
-
-        /// The path to the changelog folder.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
     },
 }
 
@@ -114,26 +102,22 @@ fn main() {
 
     let result = match opt.cmd {
         Command::Build {
-            path,
             unreleased,
             project_type,
-        } => build_changelog(&path, unreleased, project_type),
+        } => build_changelog(&opt.path, unreleased, project_type),
         Command::Add {
             editor,
             component,
             section,
             id,
-            path,
-        } => add_unreleased_entry(&editor, &path, &section, component, &id),
+        } => add_unreleased_entry(&editor, &opt.path, &section, component, &id),
         Command::Init {
             epilogue_path,
-            path,
-        } => Changelog::init_dir(path, epilogue_path),
+        } => Changelog::init_dir(opt.path, epilogue_path),
         Command::Release {
             editor,
             version,
-            path,
-        } => prepare_release(&editor, &path, &version),
+        } => prepare_release(&editor, &opt.path, &version),
     };
     if let Err(e) = result {
         log::error!("Failed: {}", e);
