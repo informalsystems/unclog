@@ -26,6 +26,10 @@ const ADD_CHANGE_TEMPLATE: &str = r#"<!--
 
 #[derive(StructOpt)]
 struct Opt {
+    /// The path to the changelog folder.
+    #[structopt(short, long, default_value = ".changelog")]
+    path: PathBuf,
+
     /// Increase output logging verbosity to DEBUG level.
     #[structopt(short, long)]
     verbose: bool,
@@ -38,13 +42,9 @@ struct Opt {
 enum Command {
     /// Create and initialize a fresh .changelog folder.
     Init {
-        /// An optional epilogue to add to the new changelog.
-        #[structopt(short, long)]
+        /// The path to an epilogue to optionally append to the new changelog.
+        #[structopt(name = "epilogue", short, long)]
         epilogue_path: Option<PathBuf>,
-
-        /// The path to the changelog folder to initialize.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
     },
     /// Add a change to the unreleased set of changes.
     Add {
@@ -58,29 +58,23 @@ enum Command {
 
         /// The ID of the section to which the change must be added (e.g.
         /// "breaking-changes").
+        #[structopt(short, long)]
         section: String,
 
         /// The ID of the change to add, which should include the number of the
         /// issue or PR to which the change applies (e.g. "820-change-api").
+        #[structopt(short, long)]
         id: String,
-
-        /// The path to the changelog folder to build.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
     },
     /// Build the changelog from the input path and write the output to stdout.
     Build {
-        /// The path to the changelog folder to build.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
-
         /// Only render unreleased changes.
         #[structopt(short, long)]
         unreleased: bool,
 
         /// The type of project this is. If not supplied, unclog will attempt
         /// to autodetect it.
-        #[structopt(short = "t", long)]
+        #[structopt(name = "type", short, long)]
         project_type: Option<ProjectType>,
     },
     /// Release any unreleased features.
@@ -90,11 +84,8 @@ enum Command {
         editor: PathBuf,
 
         /// The version string to use for the new release (e.g. "v0.1.0").
+        #[structopt(long)]
         version: String,
-
-        /// The path to the changelog folder.
-        #[structopt(default_value = ".changelog")]
-        path: PathBuf,
     },
 }
 
@@ -114,26 +105,17 @@ fn main() {
 
     let result = match opt.cmd {
         Command::Build {
-            path,
             unreleased,
             project_type,
-        } => build_changelog(&path, unreleased, project_type),
+        } => build_changelog(&opt.path, unreleased, project_type),
         Command::Add {
             editor,
             component,
             section,
             id,
-            path,
-        } => add_unreleased_entry(&editor, &path, &section, component, &id),
-        Command::Init {
-            epilogue_path,
-            path,
-        } => Changelog::init_dir(path, epilogue_path),
-        Command::Release {
-            editor,
-            version,
-            path,
-        } => prepare_release(&editor, &path, &version),
+        } => add_unreleased_entry(&editor, &opt.path, &section, component, &id),
+        Command::Init { epilogue_path } => Changelog::init_dir(opt.path, epilogue_path),
+        Command::Release { editor, version } => prepare_release(&editor, &opt.path, &version),
     };
     if let Err(e) = result {
         log::error!("Failed: {}", e);

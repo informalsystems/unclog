@@ -107,10 +107,10 @@ unclog init -e CHANGELOG.md
 #
 # The convention is that you *must* prepend the issue/PR number to which the
 # change refers to the entry ID (i.e. 23-some-new-feature relates to issue 23).
-unclog add features 23-some-new-feature
+unclog add --section features --id 23-some-new-feature
 
 # Add another feature in a different section
-unclog add breaking-changes 24-break-the-api
+unclog add -s breaking-changes -i 24-break-the-api
 ```
 
 The format of an entry is currently recommended as the following (in Markdown):
@@ -149,7 +149,7 @@ unclog --help
 ```bash
 # Moves all entries in your ".changelog/unreleased" folder to
 # ".changelog/v0.2.0" and ensures the ".changelog/unreleased" folder is empty.
-unclog release v0.2.0
+unclog release --version v0.2.0
 ```
 
 ### As a Library
