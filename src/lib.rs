@@ -4,6 +4,7 @@ mod cargo;
 mod changelog;
 mod error;
 mod project;
+mod s11n;
 
 pub use changelog::config::{
     BulletStyle, ChangeSetsConfig, ComponentsConfig, Config, UnreleasedConfig,

@@ -7,14 +7,20 @@ use serde::{de::Error as _, Deserialize, Serialize};
 use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
+use url::Url;
 
 /// Configuration options relating to the generation of a changelog.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// The URL of the project. This helps facilitate automatic content
+    /// generation when supplying an issue or PR number.
+    #[serde(with = "crate::s11n::optional_from_str")]
+    pub maybe_project_url: Option<Url>,
     /// The heading to use at the beginning of the changelog we generate.
     #[serde(default = "Config::default_heading")]
     pub heading: String,
     /// What style of bullet should we use when generating changelog entries?
+    #[serde(with = "crate::s11n::from_str")]
     pub bullet_style: BulletStyle,
     /// The message to use when the changelog is empty.
     #[serde(default = "Config::default_empty_msg")]
@@ -35,6 +41,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            maybe_project_url: None,
             heading: Self::default_heading(),
             bullet_style: BulletStyle::default(),
             empty_msg: Self::default_empty_msg(),
