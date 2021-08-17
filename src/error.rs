@@ -46,4 +46,6 @@ pub enum Error {
     InvalidBulletStyle,
     #[error("failed to parse TOML file \"{0}\": {1}")]
     TomlParse(String, toml::de::Error),
+    #[error("failed to serialize TOML: {0}")]
+    TomlSerialize(toml::ser::Error),
 }

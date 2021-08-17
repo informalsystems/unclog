@@ -2,7 +2,7 @@
 
 use super::fs_utils::{path_to_str, read_to_string_opt};
 use crate::{Error, Result};
-use log::info;
+use log::{debug, info};
 use serde::{de::Error as _, Deserialize, Serialize};
 use std::fmt;
 use std::path::Path;
@@ -10,31 +10,51 @@ use std::str::FromStr;
 use url::Url;
 
 /// Configuration options relating to the generation of a changelog.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
     /// The URL of the project. This helps facilitate automatic content
     /// generation when supplying an issue or PR number.
-    #[serde(with = "crate::s11n::optional_from_str")]
+    #[serde(
+        default,
+        with = "crate::s11n::optional_from_str",
+        skip_serializing_if = "is_default"
+    )]
     pub maybe_project_url: Option<Url>,
     /// The heading to use at the beginning of the changelog we generate.
-    #[serde(default = "Config::default_heading")]
+    #[serde(
+        default = "Config::default_heading",
+        skip_serializing_if = "Config::is_default_heading"
+    )]
     pub heading: String,
     /// What style of bullet should we use when generating changelog entries?
-    #[serde(with = "crate::s11n::from_str")]
+    #[serde(
+        default,
+        with = "crate::s11n::from_str",
+        skip_serializing_if = "is_default"
+    )]
     pub bullet_style: BulletStyle,
     /// The message to use when the changelog is empty.
-    #[serde(default = "Config::default_empty_msg")]
+    #[serde(
+        default = "Config::default_empty_msg",
+        skip_serializing_if = "Config::is_default_empty_msg"
+    )]
     pub empty_msg: String,
     /// The filename (relative to the `.changelog` folder) of the file
     /// containing content to be appended to the end of the generated
     /// changelog.
-    #[serde(default = "Config::default_epilogue_filename")]
+    #[serde(
+        default = "Config::default_epilogue_filename",
+        skip_serializing_if = "Config::is_default_epilogue_filename"
+    )]
     pub epilogue_filename: String,
     /// Configuration relating to unreleased changelog entries.
+    #[serde(default, skip_serializing_if = "is_default")]
     pub unreleased: UnreleasedConfig,
     /// Configuration relating to sets of changes.
+    #[serde(default, skip_serializing_if = "is_default")]
     pub change_sets: ChangeSetsConfig,
     /// Configuration relating to components/submodules.
+    #[serde(default, skip_serializing_if = "is_default")]
     pub components: ComponentsConfig,
 }
 
@@ -77,21 +97,46 @@ impl Config {
         }
     }
 
+    /// Attempt to save the configuration to the given file.
+    pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let path = path.as_ref();
+        debug!(
+            "Attempting to save configuration file to: {}",
+            path.display()
+        );
+        let content = toml::to_string_pretty(&self).map_err(Error::TomlSerialize)?;
+        std::fs::write(path, content)?;
+        info!("Saved configuration to: {}", path.display());
+        Ok(())
+    }
+
     fn default_heading() -> String {
         "# CHANGELOG".to_owned()
+    }
+
+    fn is_default_heading(heading: &str) -> bool {
+        heading == Self::default_heading()
     }
 
     fn default_empty_msg() -> String {
         "Nothing to see here! Add some entries to get started.".to_owned()
     }
 
+    fn is_default_empty_msg(empty_msg: &str) -> bool {
+        empty_msg == Self::default_empty_msg()
+    }
+
     fn default_epilogue_filename() -> String {
         "epilogue.md".to_owned()
+    }
+
+    fn is_default_epilogue_filename(epilogue_filename: &str) -> bool {
+        epilogue_filename == Self::default_epilogue_filename()
     }
 }
 
 /// The various styles of bullets available in Markdown.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BulletStyle {
     /// `*`
     Asterisk,
@@ -147,7 +192,7 @@ impl<'de> Deserialize<'de> for BulletStyle {
 }
 
 /// Configuration relating to unreleased changelog entries.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UnreleasedConfig {
     #[serde(default = "UnreleasedConfig::default_folder")]
     pub folder: String,
@@ -174,7 +219,7 @@ impl UnreleasedConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ChangeSetsConfig {
     #[serde(default = "ChangeSetsConfig::default_summary_filename")]
     pub summary_filename: String,
@@ -201,7 +246,7 @@ impl ChangeSetsConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComponentsConfig {
     #[serde(default = "ComponentsConfig::default_general_entries_title")]
     pub general_entries_title: String,
@@ -226,4 +271,11 @@ impl ComponentsConfig {
     fn default_entry_indent() -> u8 {
         2
     }
+}
+
+fn is_default<D>(v: &D) -> bool
+where
+    D: Default + PartialEq,
+{
+    D::default().eq(v)
 }
