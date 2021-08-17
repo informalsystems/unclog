@@ -3,6 +3,7 @@
 mod change_set;
 mod change_set_section;
 mod component_section;
+pub mod config;
 mod entry;
 pub mod fs_utils;
 mod parsing_utils;
@@ -19,21 +20,10 @@ use crate::changelog::fs_utils::{
 };
 use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
 use crate::{ComponentLoader, Error, Result};
+use config::Config;
 use log::{debug, info};
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fmt, fs};
-
-pub const CHANGELOG_HEADING: &str = "# CHANGELOG";
-pub const UNRELEASED_FOLDER: &str = "unreleased";
-pub const UNRELEASED_HEADING: &str = "## Unreleased";
-pub const EPILOGUE_FILENAME: &str = "epilogue.md";
-pub const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
-pub const CHANGE_SET_ENTRY_EXT: &str = "md";
-pub const EMPTY_CHANGELOG_MSG: &str = "Nothing to see here! Add some entries to get started.";
-pub const COMPONENT_GENERAL_ENTRIES_TITLE: &str = "General";
-pub const COMPONENT_NAME_PREFIX: &str = "- ";
-pub const COMPONENT_ENTRY_INDENT: u8 = 2;
-pub const COMPONENT_ENTRY_OVERFLOW_INDENT: u8 = 4;
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
@@ -58,33 +48,36 @@ impl Changelog {
     }
 
     /// Renders the full changelog to a string.
-    pub fn render_full(&self) -> String {
-        let mut paragraphs = vec![CHANGELOG_HEADING.to_owned()];
+    pub fn render(&self, config: &Config) -> String {
+        let mut paragraphs = vec![config.heading.clone()];
         if self.is_empty() {
-            paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
+            paragraphs.push(config.empty_msg.clone());
         } else {
-            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs() {
+            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs(config) {
                 paragraphs.extend(unreleased_paragraphs);
             }
             self.releases
                 .iter()
-                .for_each(|r| paragraphs.push(r.to_string()));
+                .for_each(|r| paragraphs.push(r.render(config)));
             if let Some(epilogue) = self.epilogue.as_ref() {
                 paragraphs.push(epilogue.clone());
             }
         }
-        paragraphs.join("\n\n")
+        format!("{}\n", paragraphs.join("\n\n"))
     }
 
     /// Renders just the unreleased changes to a string.
-    pub fn render_unreleased(&self) -> Result<String> {
-        Ok(self.unreleased_paragraphs()?.join("\n\n"))
+    pub fn render_unreleased(&self, config: &Config) -> Result<String> {
+        Ok(self.unreleased_paragraphs(config)?.join("\n\n"))
     }
 
-    fn unreleased_paragraphs(&self) -> Result<Vec<String>> {
+    fn unreleased_paragraphs(&self, config: &Config) -> Result<Vec<String>> {
         if let Some(unreleased) = self.maybe_unreleased.as_ref() {
             if !unreleased.is_empty() {
-                return Ok(vec![UNRELEASED_HEADING.to_owned(), unreleased.to_string()]);
+                return Ok(vec![
+                    config.unreleased.heading.clone(),
+                    unreleased.render(config),
+                ]);
             }
         }
         Err(Error::NoUnreleasedEntries)
@@ -95,6 +88,7 @@ impl Changelog {
     /// Creates the target folder if it doesn't exist, and optionally copies an
     /// epilogue into it.
     pub fn init_dir<P: AsRef<Path>, E: AsRef<Path>>(
+        config: &Config,
         path: P,
         epilogue_path: Option<E>,
     ) -> Result<()> {
@@ -105,7 +99,7 @@ impl Changelog {
         // Optionally copy an epilogue into the target path.
         let epilogue_path = epilogue_path.as_ref();
         if let Some(ep) = epilogue_path {
-            let new_epilogue_path = path.join(EPILOGUE_FILENAME);
+            let new_epilogue_path = path.join(&config.epilogue_filename);
             fs::copy(ep, &new_epilogue_path)?;
             info!(
                 "Copied epilogue from {} to {}",
@@ -114,14 +108,14 @@ impl Changelog {
             );
         }
         // We want an empty unreleased directory with a .gitkeep file
-        Self::init_empty_unreleased_dir(path)?;
+        Self::init_empty_unreleased_dir(config, path)?;
 
         info!("Success!");
         Ok(())
     }
 
     /// Attempt to read a full changelog from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
     where
         P: AsRef<Path>,
         C: ComponentLoader,
@@ -134,18 +128,21 @@ impl Changelog {
         if !fs::metadata(path)?.is_dir() {
             return Err(Error::ExpectedDir(fs_utils::path_to_str(path)));
         }
-        let unreleased =
-            ChangeSet::read_from_dir_opt(path.join(UNRELEASED_FOLDER), component_loader)?;
+        let unreleased = ChangeSet::read_from_dir_opt(
+            config,
+            path.join(&config.unreleased.folder),
+            component_loader,
+        )?;
         debug!("Scanning for releases in {}", path.display());
-        let release_dirs = read_and_filter_dir(path, release_dir_filter)?;
+        let release_dirs = read_and_filter_dir(path, |e| release_dir_filter(config, e))?;
         let mut releases = release_dirs
             .into_iter()
-            .map(|path| Release::read_from_dir(path, component_loader))
+            .map(|path| Release::read_from_dir(config, path, component_loader))
             .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
         releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
-        let epilogue =
-            read_to_string_opt(path.join(EPILOGUE_FILENAME))?.map(|e| trim_newlines(&e).to_owned());
+        let epilogue = read_to_string_opt(path.join(&config.epilogue_filename))?
+            .map(|e| trim_newlines(&e).to_owned());
         Ok(Self {
             maybe_unreleased: unreleased,
             releases,
@@ -156,6 +153,7 @@ impl Changelog {
     /// Adds a changelog entry with the given ID to the specified section in
     /// the `unreleased` folder.
     pub fn add_unreleased_entry<P, S, C, I, O>(
+        config: &Config,
         path: P,
         section: S,
         component: Option<C>,
@@ -170,7 +168,7 @@ impl Changelog {
         O: AsRef<str>,
     {
         let path = path.as_ref();
-        let unreleased_path = path.join(UNRELEASED_FOLDER);
+        let unreleased_path = path.join(&config.unreleased.folder);
         ensure_dir(&unreleased_path)?;
         let section = section.as_ref();
         let section_path = unreleased_path.join(section);
@@ -180,7 +178,7 @@ impl Changelog {
             entry_dir = entry_dir.join(component.as_ref());
             ensure_dir(&entry_dir)?;
         }
-        let entry_path = entry_dir.join(entry_id_to_filename(id));
+        let entry_path = entry_dir.join(entry_id_to_filename(config, id));
         // We don't want to overwrite any existing entries
         if fs::metadata(&entry_path).is_ok() {
             return Err(Error::FileExists(path_to_str(&entry_path)));
@@ -192,6 +190,7 @@ impl Changelog {
 
     /// Compute the file system path to the entry with the given parameters.
     pub fn get_entry_path<P, R, S, C, I>(
+        config: &Config,
         path: P,
         release: R,
         section: S,
@@ -209,12 +208,16 @@ impl Changelog {
         if let Some(component) = component {
             path = path.join(component.as_ref());
         }
-        path.join(entry_id_to_filename(id))
+        path.join(entry_id_to_filename(config, id))
     }
 
     /// Moves the `unreleased` folder from our changelog to a directory whose
     /// name is the given version.
-    pub fn prepare_release_dir<P: AsRef<Path>, S: AsRef<str>>(path: P, version: S) -> Result<()> {
+    pub fn prepare_release_dir<P: AsRef<Path>, S: AsRef<str>>(
+        config: &Config,
+        path: P,
+        version: S,
+    ) -> Result<()> {
         let path = path.as_ref();
         let version = version.as_ref();
 
@@ -227,7 +230,7 @@ impl Changelog {
             return Err(Error::DirExists(path_to_str(&version_path)));
         }
 
-        let unreleased_path = path.join(UNRELEASED_FOLDER);
+        let unreleased_path = path.join(&config.unreleased.folder);
         // The unreleased folder must exist
         if fs::metadata(&unreleased_path).is_err() {
             return Err(Error::ExpectedDir(path_to_str(&unreleased_path)));
@@ -242,11 +245,11 @@ impl Changelog {
         // We no longer need a .gitkeep in the release directory, if there is one
         rm_gitkeep(&version_path)?;
 
-        Self::init_empty_unreleased_dir(path)
+        Self::init_empty_unreleased_dir(config, path)
     }
 
-    fn init_empty_unreleased_dir(path: &Path) -> Result<()> {
-        let unreleased_dir = path.join(UNRELEASED_FOLDER);
+    fn init_empty_unreleased_dir(config: &Config, path: &Path) -> Result<()> {
+        let unreleased_dir = path.join(&config.unreleased.folder);
         ensure_dir(&unreleased_dir)?;
         let unreleased_gitkeep = unreleased_dir.join(".gitkeep");
         fs::write(&unreleased_gitkeep, "")?;
@@ -255,24 +258,18 @@ impl Changelog {
     }
 }
 
-impl fmt::Display for Changelog {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{}", self.render_full())
-    }
+fn entry_id_to_filename<S: AsRef<str>>(config: &Config, id: S) -> String {
+    format!("{}.{}", id.as_ref(), config.change_sets.entry_ext)
 }
 
-fn entry_id_to_filename<S: AsRef<str>>(id: S) -> String {
-    format!("{}.{}", id.as_ref(), CHANGE_SET_ENTRY_EXT)
-}
-
-fn release_dir_filter(e: fs::DirEntry) -> Option<crate::Result<PathBuf>> {
+fn release_dir_filter(config: &Config, e: fs::DirEntry) -> Option<crate::Result<PathBuf>> {
     let file_name = e.file_name();
     let file_name = file_name.to_string_lossy();
     let meta = match e.metadata() {
         Ok(m) => m,
         Err(e) => return Some(Err(Error::Io(e))),
     };
-    if meta.is_dir() && file_name != UNRELEASED_FOLDER {
+    if meta.is_dir() && file_name != config.unreleased.folder {
         Some(Ok(e.path()))
     } else {
         None

@@ -1,14 +1,11 @@
 use crate::changelog::change_set_section::indent_entries;
 use crate::changelog::entry::read_entries_sorted;
 use crate::changelog::fs_utils::{entry_filter, path_to_str, read_and_filter_dir};
-use crate::{
-    ComponentLoader, Entry, Error, Result, COMPONENT_ENTRY_INDENT, COMPONENT_ENTRY_OVERFLOW_INDENT,
-    COMPONENT_NAME_PREFIX,
-};
+use crate::{ComponentLoader, Config, Entry, Error, Result};
 use log::debug;
 use std::ffi::OsStr;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fmt, fs};
 
 /// A section of entries related to a specific component/submodule/package.
 #[derive(Debug, Clone)]
@@ -30,7 +27,7 @@ impl ComponentSection {
     }
 
     /// Attempt to load this component section from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
     where
         P: AsRef<Path>,
         C: ComponentLoader,
@@ -49,7 +46,7 @@ impl ComponentSection {
             Some(component_path) => debug!("Found component \"{}\" in: {}", name, component_path),
             None => debug!("Could not find component \"{}\"", name),
         }
-        let entry_files = read_and_filter_dir(path, entry_filter)?;
+        let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
         let entries = read_entries_sorted(entry_files)?;
         Ok(Self {
             name,
@@ -57,23 +54,21 @@ impl ComponentSection {
             entries,
         })
     }
-}
 
-impl fmt::Display for ComponentSection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub fn render(&self, config: &Config) -> String {
         let entries_lines = indent_entries(
             &self.entries,
-            COMPONENT_ENTRY_INDENT,
-            COMPONENT_ENTRY_OVERFLOW_INDENT,
+            config.components.entry_indent,
+            config.components.entry_indent + 2,
         );
         let name = match &self.maybe_path {
             // Render as a Markdown hyperlink
             Some(path) => format!("[{}]({})", self.name, path),
             None => self.name.clone(),
         };
-        let mut lines = vec![format!("{}{}", COMPONENT_NAME_PREFIX, name)];
+        let mut lines = vec![format!("{} {}", config.bullet_style.to_string(), name)];
         lines.extend(entries_lines);
-        write!(f, "{}", lines.join("\n"))
+        lines.join("\n")
     }
 }
 
@@ -91,7 +86,7 @@ pub(crate) fn package_section_filter(e: fs::DirEntry) -> Option<Result<PathBuf>>
 
 #[cfg(test)]
 mod test {
-    use super::ComponentSection;
+    use super::{ComponentSection, Config};
     use crate::Entry;
 
     const RENDERED_WITH_PATH: &str = r#"- [some-project](./some-project/)
@@ -111,7 +106,7 @@ mod test {
             maybe_path: Some("./some-project/".to_owned()),
             entries: test_entries(),
         };
-        assert_eq!(RENDERED_WITH_PATH, ps.to_string());
+        assert_eq!(RENDERED_WITH_PATH, ps.render(&Config::default()));
     }
 
     #[test]
@@ -121,7 +116,7 @@ mod test {
             maybe_path: None,
             entries: test_entries(),
         };
-        assert_eq!(RENDERED_WITHOUT_PATH, ps.to_string());
+        assert_eq!(RENDERED_WITHOUT_PATH, ps.render(&Config::default()));
     }
 
     fn test_entries() -> Vec<Entry> {

@@ -42,4 +42,8 @@ pub enum Error {
     UnrecognizedProjectType(String),
     #[error("cannot autodetect project type in path: {0}")]
     CannotAutodetectProjectType(PathBuf),
+    #[error("invalid bullet style - can only be \"*\" or \"-\"")]
+    InvalidBulletStyle,
+    #[error("failed to parse TOML file \"{0}\": {1}")]
+    TomlParse(String, toml::de::Error),
 }

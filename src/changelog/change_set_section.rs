@@ -1,13 +1,9 @@
 use crate::changelog::component_section::package_section_filter;
 use crate::changelog::entry::read_entries_sorted;
 use crate::changelog::fs_utils::{entry_filter, path_to_str, read_and_filter_dir};
-use crate::{
-    ComponentLoader, ComponentSection, Entry, Error, Result, COMPONENT_ENTRY_INDENT,
-    COMPONENT_ENTRY_OVERFLOW_INDENT, COMPONENT_GENERAL_ENTRIES_TITLE, COMPONENT_NAME_PREFIX,
-};
+use crate::{ComponentLoader, ComponentSection, Config, Entry, Error, Result};
 use log::debug;
 use std::ffi::OsStr;
-use std::fmt;
 use std::path::Path;
 
 /// A single section in a set of changes.
@@ -30,7 +26,7 @@ impl ChangeSetSection {
     }
 
     /// Attempt to read a single change set section from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
     where
         P: AsRef<Path>,
         C: ComponentLoader,
@@ -47,11 +43,11 @@ impl ChangeSetSection {
         let component_section_dirs = read_and_filter_dir(path, package_section_filter)?;
         let mut component_sections = component_section_dirs
             .into_iter()
-            .map(|path| ComponentSection::read_from_dir(path, component_loader))
+            .map(|path| ComponentSection::read_from_dir(config, path, component_loader))
             .collect::<Result<Vec<ComponentSection>>>()?;
         // Component sections must be sorted by name
         component_sections.sort_by(|a, b| a.name.cmp(&b.name));
-        let entry_files = read_and_filter_dir(path, entry_filter)?;
+        let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
         let entries = read_entries_sorted(entry_files)?;
         Ok(Self {
             title,
@@ -59,10 +55,10 @@ impl ChangeSetSection {
             component_sections,
         })
     }
-}
 
-impl fmt::Display for ChangeSetSection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    /// Render this change set section to a string using the given
+    /// configuration.
+    pub fn render(&self, config: &Config) -> String {
         let mut lines = Vec::new();
         // If we have no package sections
         if self.component_sections.is_empty() {
@@ -80,25 +76,26 @@ impl fmt::Display for ChangeSetSection {
                 // For example:
                 // - General
                 lines.push(format!(
-                    "{}{}",
-                    COMPONENT_NAME_PREFIX, COMPONENT_GENERAL_ENTRIES_TITLE
+                    "{} {}",
+                    config.bullet_style.to_string(),
+                    config.components.general_entries_title
                 ));
                 // Now we indent all general entries.
                 lines.extend(indent_entries(
                     &self.entries,
-                    COMPONENT_ENTRY_INDENT,
-                    COMPONENT_ENTRY_OVERFLOW_INDENT,
+                    config.components.entry_indent,
+                    config.components.entry_indent + 2,
                 ));
             }
             // Component-specific sections are already indented
             lines.extend(
                 self.component_sections
                     .iter()
-                    .map(|ps| ps.to_string())
+                    .map(|ps| ps.render(config))
                     .collect::<Vec<String>>(),
             );
         }
-        write!(f, "### {}\n\n{}", self.title, lines.join("\n"))
+        format!("### {}\n\n{}", self.title, lines.join("\n"))
     }
 }
 

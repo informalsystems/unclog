@@ -1,9 +1,9 @@
 use crate::changelog::fs_utils::{read_and_filter_dir, read_to_string_opt};
 use crate::changelog::parsing_utils::trim_newlines;
-use crate::{ChangeSetSection, ComponentLoader, Error, Result, CHANGE_SET_SUMMARY_FILENAME};
+use crate::{ChangeSetSection, ComponentLoader, Config, Error, Result};
 use log::debug;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fmt, fs};
 
 /// A set of changes, either associated with a release or not.
 #[derive(Debug, Clone)]
@@ -27,19 +27,19 @@ impl ChangeSet {
     }
 
     /// Attempt to read a single change set from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
     where
         P: AsRef<Path>,
         C: ComponentLoader,
     {
         let path = path.as_ref();
         debug!("Loading change set from {}", path.display());
-        let summary = read_to_string_opt(path.join(CHANGE_SET_SUMMARY_FILENAME))?
+        let summary = read_to_string_opt(path.join(&config.change_sets.summary_filename))?
             .map(|s| trim_newlines(&s).to_owned());
         let section_dirs = read_and_filter_dir(path, change_set_section_filter)?;
         let mut sections = section_dirs
             .into_iter()
-            .map(|path| ChangeSetSection::read_from_dir(path, component_loader))
+            .map(|path| ChangeSetSection::read_from_dir(config, path, component_loader))
             .collect::<Result<Vec<ChangeSetSection>>>()?;
         // Sort sections alphabetically
         sections.sort_by(|a, b| a.title.cmp(&b.title));
@@ -52,7 +52,11 @@ impl ChangeSet {
     /// Attempt to read a single change set from the given directory, like
     /// [`ChangeSet::read_from_dir`], but return `Option::None` if the
     /// directory does not exist.
-    pub fn read_from_dir_opt<P, C>(path: P, component_loader: &mut C) -> Result<Option<Self>>
+    pub fn read_from_dir_opt<P, C>(
+        config: &Config,
+        path: P,
+        component_loader: &mut C,
+    ) -> Result<Option<Self>>
     where
         P: AsRef<Path>,
         C: ComponentLoader,
@@ -62,12 +66,10 @@ impl ChangeSet {
         if fs::metadata(path).is_err() {
             return Ok(None);
         }
-        Self::read_from_dir(path, component_loader).map(Some)
+        Self::read_from_dir(config, path, component_loader).map(Some)
     }
-}
 
-impl fmt::Display for ChangeSet {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    pub fn render(&self, config: &Config) -> String {
         let mut paragraphs = Vec::new();
         if let Some(summary) = self.maybe_summary.as_ref() {
             paragraphs.push(summary.clone());
@@ -75,8 +77,8 @@ impl fmt::Display for ChangeSet {
         self.sections
             .iter()
             .filter(|s| !s.is_empty())
-            .for_each(|s| paragraphs.push(s.to_string()));
-        write!(f, "{}", paragraphs.join("\n\n"))
+            .for_each(|s| paragraphs.push(s.render(config)));
+        paragraphs.join("\n\n")
     }
 }
 

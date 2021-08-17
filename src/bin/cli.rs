@@ -3,25 +3,20 @@
 use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use unclog::{
-    Changelog, Error, ProjectType, Result, RustProject, CHANGE_SET_SUMMARY_FILENAME,
-    UNRELEASED_FOLDER,
-};
+use unclog::{Changelog, Config, Error, ProjectType, Result, RustProject};
 
 const RELEASE_SUMMARY_TEMPLATE: &str = r#"<!--
     Add a summary for the release here.
 
     If you don't change this message, or if this file is empty, the release
-    will not be created.
--->
+    will not be created. -->
 "#;
 
 const ADD_CHANGE_TEMPLATE: &str = r#"<!--
     Add your entry's details here (in Markdown format).
 
     If you don't change this message, or if this file is empty, the entry will
-    not be created.
--->
+    not be created. -->
 "#;
 
 #[derive(StructOpt)]
@@ -29,6 +24,13 @@ struct Opt {
     /// The path to the changelog folder.
     #[structopt(short, long, default_value = ".changelog")]
     path: PathBuf,
+
+    /// The path to the changelog configuration file. If a relative path is
+    /// supplied, this will be considered to be relative to the changelog
+    /// folder's path. If no configuration file exists, defaults will be used
+    /// for all parameters.
+    #[structopt(short, long, default_value = "config.toml")]
+    config_file: PathBuf,
 
     /// Increase output logging verbosity to DEBUG level.
     #[structopt(short, long)]
@@ -103,19 +105,28 @@ fn main() {
     )
     .unwrap();
 
+    let config_path = if opt.config_file.is_relative() {
+        opt.path.join(opt.config_file)
+    } else {
+        opt.config_file
+    };
+    let config = Config::read_from_file(config_path).unwrap();
+
     let result = match opt.cmd {
         Command::Build {
             unreleased,
             project_type,
-        } => build_changelog(&opt.path, unreleased, project_type),
+        } => build_changelog(&config, &opt.path, unreleased, project_type),
         Command::Add {
             editor,
             component,
             section,
             id,
-        } => add_unreleased_entry(&editor, &opt.path, &section, component, &id),
-        Command::Init { epilogue_path } => Changelog::init_dir(opt.path, epilogue_path),
-        Command::Release { editor, version } => prepare_release(&editor, &opt.path, &version),
+        } => add_unreleased_entry(&config, &editor, &opt.path, &section, component, &id),
+        Command::Init { epilogue_path } => Changelog::init_dir(&config, opt.path, epilogue_path),
+        Command::Release { editor, version } => {
+            prepare_release(&config, &editor, &opt.path, &version)
+        }
     };
     if let Err(e) = result {
         log::error!("Failed: {}", e);
@@ -124,6 +135,7 @@ fn main() {
 }
 
 fn build_changelog(
+    config: &Config,
     path: &Path,
     unreleased: bool,
     maybe_project_type: Option<ProjectType>,
@@ -136,25 +148,32 @@ fn build_changelog(
     let project = match project_type {
         ProjectType::Rust => RustProject::new(path),
     };
-    let changelog = project.read_changelog()?;
+    let changelog = project.read_changelog(config)?;
     log::info!("Success!");
     if unreleased {
-        println!("{}", changelog.render_unreleased()?);
+        println!("{}", changelog.render_unreleased(config)?);
     } else {
-        println!("{}", changelog.render_full());
+        println!("{}", changelog.render(config));
     }
     Ok(())
 }
 
 fn add_unreleased_entry(
+    config: &Config,
     editor: &Path,
     path: &Path,
     section: &str,
     component: Option<String>,
     id: &str,
 ) -> Result<()> {
-    let entry_path =
-        Changelog::get_entry_path(path, UNRELEASED_FOLDER, section, component.clone(), id);
+    let entry_path = Changelog::get_entry_path(
+        config,
+        path,
+        &config.unreleased.folder,
+        section,
+        component.clone(),
+        id,
+    );
     if std::fs::metadata(&entry_path).is_ok() {
         return Err(Error::FileExists(entry_path.display().to_string()));
     }
@@ -175,15 +194,15 @@ fn add_unreleased_entry(
         return Ok(());
     }
 
-    Changelog::add_unreleased_entry(path, section, component, id, &tmpfile_content)
+    Changelog::add_unreleased_entry(config, path, section, component, id, &tmpfile_content)
 }
 
-fn prepare_release(editor: &Path, path: &Path, version: &str) -> Result<()> {
+fn prepare_release(config: &Config, editor: &Path, path: &Path, version: &str) -> Result<()> {
     // Add the summary to the unreleased folder, since we'll be moving it to
     // the new release folder
     let summary_path = path
-        .join(UNRELEASED_FOLDER)
-        .join(CHANGE_SET_SUMMARY_FILENAME);
+        .join(&config.unreleased.folder)
+        .join(&config.change_sets.summary_filename);
     // If the summary doesn't exist, try to create it
     if std::fs::metadata(&summary_path).is_err() {
         std::fs::write(&summary_path, RELEASE_SUMMARY_TEMPLATE)?;
@@ -202,5 +221,5 @@ fn prepare_release(editor: &Path, path: &Path, version: &str) -> Result<()> {
         return Ok(());
     }
 
-    Changelog::prepare_release_dir(path, version)
+    Changelog::prepare_release_dir(config, path, version)
 }

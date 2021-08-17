@@ -1,6 +1,6 @@
 //! File system-related utilities to help with manipulating changelogs.
 
-use crate::{Error, Result, CHANGE_SET_ENTRY_EXT};
+use crate::{Config, Error, Result};
 use log::{debug, info};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,14 +53,14 @@ where
         .collect::<Result<Vec<PathBuf>>>()
 }
 
-pub(crate) fn entry_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
+pub(crate) fn entry_filter(config: &Config, e: fs::DirEntry) -> Option<Result<PathBuf>> {
     let meta = match e.metadata() {
         Ok(m) => m,
         Err(e) => return Some(Err(Error::Io(e))),
     };
     let path = e.path();
     let ext = path.extension()?.to_str()?;
-    if meta.is_file() && ext == CHANGE_SET_ENTRY_EXT {
+    if meta.is_file() && ext == config.change_sets.entry_ext {
         Some(Ok(path))
     } else {
         None

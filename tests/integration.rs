@@ -1,7 +1,7 @@
 //! Integration tests for `unclog`.
 
 use std::path::PathBuf;
-use unclog::{Component, ComponentLoader, Project, Result};
+use unclog::{Component, ComponentLoader, Config, Project, Result};
 
 struct MockLoader;
 
@@ -21,7 +21,8 @@ impl ComponentLoader for MockLoader {
 fn full() {
     env_logger::init();
     let project = Project::new_with_component_loader("./tests/full", MockLoader);
-    let changelog = project.read_changelog().unwrap();
+    let config = Config::default();
+    let changelog = project.read_changelog(&config).unwrap();
     let expected = std::fs::read_to_string("./tests/full/expected.md").unwrap();
-    assert_eq!(expected, changelog.to_string());
+    assert_eq!(expected, changelog.render(&config));
 }

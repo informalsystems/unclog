@@ -3,7 +3,7 @@
 
 use crate::cargo::get_crate_manifest_path;
 use crate::changelog::fs_utils::get_relative_path;
-use crate::{Changelog, Error, Result};
+use crate::{Changelog, Config, Error, Result};
 use log::debug;
 use std::collections::HashMap;
 use std::fmt;
@@ -86,8 +86,8 @@ impl<C: ComponentLoader> Project<C> {
     /// Attempt to load the changelog associated with this project.
     ///
     /// Consumes the project.
-    pub fn read_changelog(mut self) -> Result<Changelog> {
-        Changelog::read_from_dir(&self.path, &mut self.component_loader)
+    pub fn read_changelog(mut self, config: &Config) -> Result<Changelog> {
+        Changelog::read_from_dir(config, &self.path, &mut self.component_loader)
     }
 }
 
