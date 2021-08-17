@@ -42,8 +42,8 @@ struct Opt {
 enum Command {
     /// Create and initialize a fresh .changelog folder.
     Init {
-        /// An optional epilogue to add to the new changelog.
-        #[structopt(short, long)]
+        /// The path to an epilogue to optionally append to the new changelog.
+        #[structopt(name="epilogue", short, long)]
         epilogue_path: Option<PathBuf>,
     },
     /// Add a change to the unreleased set of changes.
