@@ -43,7 +43,7 @@ enum Command {
     /// Create and initialize a fresh .changelog folder.
     Init {
         /// The path to an epilogue to optionally append to the new changelog.
-        #[structopt(name="epilogue", short, long)]
+        #[structopt(name = "epilogue", short, long)]
         epilogue_path: Option<PathBuf>,
     },
     /// Add a change to the unreleased set of changes.
@@ -114,13 +114,8 @@ fn main() {
             section,
             id,
         } => add_unreleased_entry(&editor, &opt.path, &section, component, &id),
-        Command::Init {
-            epilogue_path,
-        } => Changelog::init_dir(opt.path, epilogue_path),
-        Command::Release {
-            editor,
-            version,
-        } => prepare_release(&editor, &opt.path, &version),
+        Command::Init { epilogue_path } => Changelog::init_dir(opt.path, epilogue_path),
+        Command::Release { editor, version } => prepare_release(&editor, &opt.path, &version),
     };
     if let Err(e) = result {
         log::error!("Failed: {}", e);
