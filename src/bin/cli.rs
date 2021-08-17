@@ -58,10 +58,12 @@ enum Command {
 
         /// The ID of the section to which the change must be added (e.g.
         /// "breaking-changes").
+        #[structopt(short, long)]
         section: String,
 
         /// The ID of the change to add, which should include the number of the
         /// issue or PR to which the change applies (e.g. "820-change-api").
+        #[structopt(short, long)]
         id: String,
     },
     /// Build the changelog from the input path and write the output to stdout.
@@ -82,6 +84,7 @@ enum Command {
         editor: PathBuf,
 
         /// The version string to use for the new release (e.g. "v0.1.0").
+        #[structopt(long)]
         version: String,
     },
 }
