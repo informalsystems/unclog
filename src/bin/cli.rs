@@ -19,17 +19,19 @@ const ADD_CHANGE_TEMPLATE: &str = r#"<!--
     not be created. -->
 "#;
 
+const DEFAULT_CHANGELOG_DIR: &str = ".changelog";
+const DEFAULT_CONFIG_FILENAME: &str = "config.toml";
+
 #[derive(StructOpt)]
 struct Opt {
     /// The path to the changelog folder.
-    #[structopt(short, long, default_value = ".changelog")]
+    #[structopt(short, long, default_value = DEFAULT_CHANGELOG_DIR)]
     path: PathBuf,
 
     /// The path to the changelog configuration file. If a relative path is
-    /// supplied, this will be considered to be relative to the changelog
-    /// folder's path. If no configuration file exists, defaults will be used
-    /// for all parameters.
-    #[structopt(short, long, default_value = "config.toml")]
+    /// provided, it is assumed this is relative to the `path` parameter. If no
+    /// configuration file exists, defaults will be used for all parameters.
+    #[structopt(short, long, default_value = DEFAULT_CONFIG_FILENAME)]
     config_file: PathBuf,
 
     /// Increase output logging verbosity to DEBUG level.
