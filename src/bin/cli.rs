@@ -38,6 +38,10 @@ struct Opt {
     #[structopt(short, long)]
     verbose: bool,
 
+    /// Suppress all output logging (overrides `--verbose`).
+    #[structopt(short, long)]
+    quiet: bool,
+
     #[structopt(subcommand)]
     cmd: Command,
 }
@@ -96,7 +100,9 @@ enum Command {
 fn main() {
     let opt: Opt = Opt::from_args();
     TermLogger::init(
-        if opt.verbose {
+        if opt.quiet {
+            LevelFilter::Off
+        } else if opt.verbose {
             LevelFilter::Debug
         } else {
             LevelFilter::Info
