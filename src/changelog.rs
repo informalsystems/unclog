@@ -286,8 +286,16 @@ impl Changelog {
             serde_json::to_string_pretty(&template_params)?
         );
         let rendered_change = hb.render("change", &template_params)?;
-        debug!("Rendered change:\n{}", rendered_change);
-        Ok(rendered_change)
+        let wrapped_rendered = textwrap::wrap(
+            &rendered_change,
+            textwrap::Options::new(config.wrap as usize)
+                .subsequent_indent("  ")
+                .break_words(false)
+                .word_separator(textwrap::word_separators::AsciiSpace),
+        )
+        .join("\n");
+        debug!("Rendered wrapped change:\n{}", wrapped_rendered);
+        Ok(wrapped_rendered)
     }
 
     /// Compute the file system path to the entry with the given parameters.

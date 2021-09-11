@@ -60,5 +60,5 @@ fn change_template_rendering() {
         "This introduces a new *breaking* change",
     )
     .unwrap();
-    assert_eq!(rendered_change, "- This introduces a new *breaking* change ([#123](https://github.com/org/project/issues/123))")
+    assert_eq!(rendered_change, "- This introduces a new *breaking* change\n  ([#123](https://github.com/org/project/issues/123))")
 }
