@@ -71,6 +71,14 @@ pub fn get_relative_path<P: AsRef<Path>, Q: AsRef<Path>>(path: P, prefix: Q) -> 
     Ok(path.as_ref().strip_prefix(prefix.as_ref())?.to_path_buf())
 }
 
+pub fn file_exists<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+    if let Ok(meta) = fs::metadata(&path) {
+        return meta.is_file();
+    }
+    false
+}
+
 #[cfg(test)]
 mod test {
     use super::get_relative_path;

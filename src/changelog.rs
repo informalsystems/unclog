@@ -103,12 +103,19 @@ impl Changelog {
         let maybe_epilogue_path = maybe_epilogue_path.as_ref();
         if let Some(ep) = maybe_epilogue_path {
             let new_epilogue_path = path.join(&config.epilogue_filename);
-            fs::copy(ep, &new_epilogue_path)?;
-            info!(
-                "Copied epilogue from {} to {}",
-                path_to_str(ep),
-                path_to_str(&new_epilogue_path),
-            );
+            if !fs_utils::file_exists(&new_epilogue_path) {
+                fs::copy(ep, &new_epilogue_path)?;
+                info!(
+                    "Copied epilogue from {} to {}",
+                    path_to_str(ep),
+                    path_to_str(&new_epilogue_path),
+                );
+            } else {
+                debug!(
+                    "Epilogue file already exists, not copying: {}",
+                    path_to_str(&new_epilogue_path)
+                );
+            }
         }
         // We want an empty unreleased directory with a .gitkeep file
         Self::init_empty_unreleased_dir(config, path)?;
