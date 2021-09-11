@@ -5,7 +5,6 @@ mod change_set_section;
 mod component_section;
 pub mod config;
 mod entry;
-pub mod fs_utils;
 mod parsing_utils;
 mod release;
 
@@ -14,16 +13,20 @@ pub use change_set_section::ChangeSetSection;
 pub use component_section::ComponentSection;
 pub use entry::Entry;
 pub use release::Release;
+use serde_json::json;
 
-use crate::changelog::fs_utils::{
-    ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
-};
 use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
-use crate::{ComponentLoader, Error, Result};
+use crate::fs_utils::{
+    self, ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
+};
+use crate::{ComponentLoader, Error, GitHubProject, PlatformId, Result};
 use config::Config;
 use log::{debug, info};
+use std::convert::TryFrom;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+const DEFAULT_CHANGE_TEMPLATE: &str = "- {{{ message }}} ([#{{ change_id }}]({{{ change_url }}}))";
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
@@ -90,15 +93,15 @@ impl Changelog {
     pub fn init_dir<P: AsRef<Path>, E: AsRef<Path>>(
         config: &Config,
         path: P,
-        epilogue_path: Option<E>,
+        maybe_epilogue_path: Option<E>,
     ) -> Result<()> {
         let path = path.as_ref();
         // Ensure the desired path exists.
         ensure_dir(path)?;
 
         // Optionally copy an epilogue into the target path.
-        let epilogue_path = epilogue_path.as_ref();
-        if let Some(ep) = epilogue_path {
+        let maybe_epilogue_path = maybe_epilogue_path.as_ref();
+        if let Some(ep) = maybe_epilogue_path {
             let new_epilogue_path = path.join(&config.epilogue_filename);
             fs::copy(ep, &new_epilogue_path)?;
             info!(
@@ -186,6 +189,98 @@ impl Changelog {
         fs::write(&entry_path, content.as_ref())?;
         info!("Wrote entry to: {}", path_to_str(&entry_path));
         Ok(())
+    }
+
+    /// Attempts to add an unreleased changelog entry from the given parameters,
+    /// rendering them through the change template specified in the
+    /// configuration file.
+    ///
+    /// The change template is assumed to be in [Handlebars] format.
+    ///
+    /// [Handlebars]: https://handlebarsjs.com/
+    pub fn add_unreleased_entry_from_template(
+        config: &Config,
+        path: &Path,
+        section: &str,
+        component: Option<String>,
+        id: &str,
+        platform_id: PlatformId,
+        message: &str,
+    ) -> Result<()> {
+        let rendered_change = Self::render_unreleased_entry_from_template(
+            config,
+            path,
+            section,
+            component.clone(),
+            id,
+            platform_id,
+            message,
+        )?;
+        let mut id = id.to_owned();
+        if !id.starts_with(&format!("{}-", platform_id.id())) {
+            id = format!("{}-{}", platform_id.id(), id);
+            debug!("Automatically prepending platform ID to change ID: {}", id);
+        }
+        Self::add_unreleased_entry(config, path, section, component, &id, &rendered_change)
+    }
+
+    /// Renders an unreleased changelog entry from the given parameters to a
+    /// string, making use of the change template specified in the configuration
+    /// file.
+    ///
+    /// The change template is assumed to be in [Handlebars] format.
+    ///
+    /// [Handlebars]: https://handlebarsjs.com/
+    pub fn render_unreleased_entry_from_template(
+        config: &Config,
+        path: &Path,
+        section: &str,
+        component: Option<String>,
+        id: &str,
+        platform_id: PlatformId,
+        message: &str,
+    ) -> Result<String> {
+        let project_url = config
+            .maybe_project_url
+            .as_ref()
+            .ok_or(Error::MissingProjectUrl)?;
+        // We only support GitHub projects at the moment
+        let github_project = GitHubProject::try_from(project_url)?;
+        let mut change_template_file = PathBuf::from(&config.change_template);
+        if change_template_file.is_relative() {
+            change_template_file = path.join(change_template_file);
+        }
+        info!(
+            "Loading change template from: {}",
+            fs_utils::path_to_str(&change_template_file)
+        );
+        let change_template = fs_utils::read_to_string_opt(&change_template_file)?
+            .unwrap_or_else(|| DEFAULT_CHANGE_TEMPLATE.to_owned());
+        debug!("Loaded change template:\n{}", change_template);
+        let mut hb = handlebars::Handlebars::new();
+        hb.register_template_string("change", change_template)?;
+
+        let (platform_id_field, platform_id_val) = match platform_id {
+            PlatformId::Issue(issue) => ("issue", issue),
+            PlatformId::PullRequest(pull_request) => ("pull_request", pull_request),
+        };
+        let template_params = json!({
+            "project_url": github_project.to_string(),
+            "section": section,
+            "component": component,
+            "id": id,
+            platform_id_field: platform_id_val,
+            "message": message,
+            "change_url": github_project.change_url(platform_id)?.to_string(),
+            "change_id": platform_id.id(),
+        });
+        debug!(
+            "Template parameters: {}",
+            serde_json::to_string_pretty(&template_params)?
+        );
+        let rendered_change = hb.render("change", &template_params)?;
+        debug!("Rendered change:\n{}", rendered_change);
+        Ok(rendered_change)
     }
 
     /// Compute the file system path to the entry with the given parameters.

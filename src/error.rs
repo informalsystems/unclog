@@ -48,4 +48,24 @@ pub enum Error {
     TomlParse(String, toml::de::Error),
     #[error("failed to serialize TOML: {0}")]
     TomlSerialize(toml::ser::Error),
+    #[error("failed to parse URL: {0}")]
+    FailedToParseUrl(#[from] url::ParseError),
+    #[error("missing issue number (--issue-no) or pull request (--pull-request)")]
+    MissingIssueNoOrPullRequest,
+    #[error("please specify either an issue number (--issue-no) or a pull request (--pull-request), but not both")]
+    EitherIssueNoOrPullRequest,
+    #[error("the URL is missing its host: {0}")]
+    UrlMissingHost(String),
+    #[error("not a GitHub project: {0}")]
+    NotGitHubProject(String),
+    #[error("GitHub project is missing its path: {0}")]
+    GitHubProjectMissingPath(String),
+    #[error("GitHub project URLs must include both the org/user ID and project ID: {0}")]
+    InvalidGitHubProjectPath(String),
+    #[error("configuration is missing a project URL (needed for automatic entry generation)")]
+    MissingProjectUrl,
+    #[error("error loading Handlebars template: {0}")]
+    HandlebarsTemplateLoad(#[from] handlebars::TemplateError),
+    #[error("error rendering Handlebars template: {0}")]
+    HandlebarsTemplateRender(#[from] handlebars::RenderError),
 }

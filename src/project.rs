@@ -2,7 +2,7 @@
 //! this accordingly.
 
 use crate::cargo::get_crate_manifest_path;
-use crate::changelog::fs_utils::get_relative_path;
+use crate::fs_utils::get_relative_path;
 use crate::{Changelog, Config, Error, Result};
 use log::debug;
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProjectType {
     Rust,
 }
@@ -60,6 +60,12 @@ impl fmt::Display for ProjectType {
                 Self::Rust => "Rust",
             }
         )
+    }
+}
+
+impl Default for ProjectType {
+    fn default() -> Self {
+        Self::Rust
     }
 }
 

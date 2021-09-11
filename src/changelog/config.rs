@@ -1,7 +1,7 @@
 //! Configuration-related types.
 
 use super::fs_utils::{path_to_str, read_to_string_opt};
-use crate::{Error, Result};
+use crate::{Error, ProjectType, Result};
 use log::{debug, info};
 use serde::{de::Error as _, Deserialize, Serialize};
 use std::fmt;
@@ -16,10 +16,34 @@ pub struct Config {
     /// generation when supplying an issue or PR number.
     #[serde(
         default,
+        rename = "project_url",
         with = "crate::s11n::optional_from_str",
         skip_serializing_if = "is_default"
     )]
     pub maybe_project_url: Option<Url>,
+    /// The project type. At present, we only support Rust-based projects, but
+    /// this is only important for projects that make use of components.
+    #[serde(
+        default,
+        rename = "project_type",
+        with = "crate::s11n::optional_from_str",
+        skip_serializing_if = "is_default"
+    )]
+    pub maybe_project_type: Option<ProjectType>,
+    /// The path to a file containing the change template to use when
+    /// automatically adding new changelog entries. Relative to the `.changelog`
+    /// folder.
+    #[serde(
+        default = "Config::default_change_template",
+        skip_serializing_if = "Config::is_default_change_template"
+    )]
+    pub change_template: String,
+    /// Wrap entries automatically to a specific number of characters per line.
+    #[serde(
+        default = "Config::default_wrap",
+        skip_serializing_if = "Config::is_default_wrap"
+    )]
+    pub wrap: u16,
     /// The heading to use at the beginning of the changelog we generate.
     #[serde(
         default = "Config::default_heading",
@@ -62,6 +86,9 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             maybe_project_url: None,
+            maybe_project_type: None,
+            change_template: Self::default_change_template(),
+            wrap: Self::default_wrap(),
             heading: Self::default_heading(),
             bullet_style: BulletStyle::default(),
             empty_msg: Self::default_empty_msg(),
@@ -108,6 +135,22 @@ impl Config {
         std::fs::write(path, content)?;
         info!("Saved configuration to: {}", path.display());
         Ok(())
+    }
+
+    fn default_change_template() -> String {
+        "change-template.md".to_owned()
+    }
+
+    fn is_default_change_template(change_template: &str) -> bool {
+        change_template == Self::default_change_template()
+    }
+
+    fn default_wrap() -> u16 {
+        80
+    }
+
+    fn is_default_wrap(w: &u16) -> bool {
+        *w == Self::default_wrap()
     }
 
     fn default_heading() -> String {

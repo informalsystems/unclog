@@ -1,9 +1,10 @@
 //! `unclog` helps you build your changelog.
 
+use log::error;
 use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use unclog::{Changelog, Config, Error, ProjectType, Result, RustProject};
+use unclog::{Changelog, Config, Error, PlatformId, ProjectType, Result, RustProject};
 
 const RELEASE_SUMMARY_TEMPLATE: &str = r#"<!--
     Add a summary for the release here.
@@ -52,7 +53,7 @@ enum Command {
     Init {
         /// The path to an epilogue to optionally append to the new changelog.
         #[structopt(name = "epilogue", short, long)]
-        epilogue_path: Option<PathBuf>,
+        maybe_epilogue_path: Option<PathBuf>,
     },
     /// Add a change to the unreleased set of changes.
     Add {
@@ -60,9 +61,9 @@ enum Command {
         #[structopt(long, env = "EDITOR")]
         editor: PathBuf,
 
-        /// The component to which this entry should be added
-        #[structopt(short, long)]
-        component: Option<String>,
+        /// The component to which this entry should be added.
+        #[structopt(name = "component", short, long)]
+        maybe_component: Option<String>,
 
         /// The ID of the section to which the change must be added (e.g.
         /// "breaking-changes").
@@ -73,6 +74,25 @@ enum Command {
         /// issue or PR to which the change applies (e.g. "820-change-api").
         #[structopt(short, long)]
         id: String,
+
+        /// The issue number associated with this change, if any. Only relevant
+        /// if the `--message` flag is also provided. Only one of the
+        /// `--issue-no` or `--pull-request` flags can be specified at a time.
+        #[structopt(name = "issue_no", short = "n", long)]
+        maybe_issue_no: Option<u32>,
+
+        /// The number of the pull request associated with this change, if any.
+        /// Only relevant if the `--message` flag is also provided. Only one of
+        /// the `--issue-no` or `--pull-request` flags can be specified at a
+        /// time.
+        #[structopt(name = "pull_request", short, long)]
+        maybe_pull_request: Option<u32>,
+
+        /// If specified, the change will automatically be generated from the
+        /// default change template. Requires a project URL to be specified in
+        /// the changelog configuration file.
+        #[structopt(name = "message", short, long)]
+        maybe_message: Option<String>,
     },
     /// Build the changelog from the input path and write the output to stdout.
     Build {
@@ -80,10 +100,11 @@ enum Command {
         #[structopt(short, long)]
         unreleased: bool,
 
-        /// The type of project this is. If not supplied, unclog will attempt
-        /// to autodetect it.
+        /// The type of project this is. Overrides the project type specified in
+        /// the configuration file. If not specified, unclog will attempt to
+        /// autodetect the project type.
         #[structopt(name = "type", short, long)]
-        project_type: Option<ProjectType>,
+        maybe_project_type: Option<ProjectType>,
     },
     /// Release any unreleased features.
     Release {
@@ -121,23 +142,63 @@ fn main() {
     let config = Config::read_from_file(config_path).unwrap();
 
     let result = match opt.cmd {
+        Command::Init {
+            maybe_epilogue_path,
+        } => Changelog::init_dir(&config, opt.path, maybe_epilogue_path),
         Command::Build {
             unreleased,
-            project_type,
-        } => build_changelog(&config, &opt.path, unreleased, project_type),
+            maybe_project_type,
+        } => build_changelog(&config, &opt.path, unreleased, maybe_project_type),
         Command::Add {
             editor,
-            component,
+            maybe_component,
             section,
             id,
-        } => add_unreleased_entry(&config, &editor, &opt.path, &section, component, &id),
-        Command::Init { epilogue_path } => Changelog::init_dir(&config, opt.path, epilogue_path),
+            maybe_issue_no,
+            maybe_pull_request,
+            maybe_message,
+        } => match maybe_message {
+            Some(message) => match maybe_issue_no {
+                Some(issue_no) => match maybe_pull_request {
+                    Some(_) => Err(Error::EitherIssueNoOrPullRequest),
+                    None => Changelog::add_unreleased_entry_from_template(
+                        &config,
+                        &opt.path,
+                        &section,
+                        maybe_component,
+                        &id,
+                        PlatformId::Issue(issue_no),
+                        &message,
+                    ),
+                },
+                None => match maybe_pull_request {
+                    Some(pull_request) => Changelog::add_unreleased_entry_from_template(
+                        &config,
+                        &opt.path,
+                        &section,
+                        maybe_component,
+                        &id,
+                        PlatformId::PullRequest(pull_request),
+                        &message,
+                    ),
+                    None => Err(Error::MissingIssueNoOrPullRequest),
+                },
+            },
+            None => add_unreleased_entry_with_editor(
+                &config,
+                &editor,
+                &opt.path,
+                &section,
+                maybe_component,
+                &id,
+            ),
+        },
         Command::Release { editor, version } => {
             prepare_release(&config, &editor, &opt.path, &version)
         }
     };
     if let Err(e) = result {
-        log::error!("Failed: {}", e);
+        error!("Failed: {}", e);
         std::process::exit(1);
     }
 }
@@ -166,7 +227,7 @@ fn build_changelog(
     Ok(())
 }
 
-fn add_unreleased_entry(
+fn add_unreleased_entry_with_editor(
     config: &Config,
     editor: &Path,
     path: &Path,
