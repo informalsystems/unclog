@@ -78,14 +78,14 @@ enum Command {
         /// The issue number associated with this change, if any. Only relevant
         /// if the `--message` flag is also provided. Only one of the
         /// `--issue-no` or `--pull-request` flags can be specified at a time.
-        #[structopt(name = "issue_no", short = "n", long)]
+        #[structopt(name = "issue_no", short = "n", long = "issue-no")]
         maybe_issue_no: Option<u32>,
 
         /// The number of the pull request associated with this change, if any.
         /// Only relevant if the `--message` flag is also provided. Only one of
         /// the `--issue-no` or `--pull-request` flags can be specified at a
         /// time.
-        #[structopt(name = "pull_request", short, long)]
+        #[structopt(name = "pull_request", short, long = "pull-request")]
         maybe_pull_request: Option<u32>,
 
         /// If specified, the change will automatically be generated from the
