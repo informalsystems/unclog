@@ -111,7 +111,7 @@ impl Changelog {
                     path_to_str(&new_epilogue_path),
                 );
             } else {
-                debug!(
+                info!(
                     "Epilogue file already exists, not copying: {}",
                     path_to_str(&new_epilogue_path)
                 );
