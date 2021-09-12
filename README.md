@@ -83,6 +83,11 @@ output when building the files in `tests/full`.
 
 ### CLI
 
+```bash
+# Detailed information regarding usage.
+unclog -h
+```
+
 #### Initializing a changelog
 
 ```bash
@@ -93,9 +98,42 @@ unclog init
 # existing CHANGELOG.md into it as an epilogue (to be appended at the end of
 # the final changelog built by unclog).
 unclog init -e CHANGELOG.md
+
+# Automatically generate a `config.toml` file for your changelog, inferring as
+# many settings as possible from the environment. (Right now this mainly infers
+# your GitHub project URL, if it's a GitHub project)
+unclog init -g
 ```
 
 #### Adding a new unreleased entry
+
+There are two ways of adding a new entry:
+
+1. Entirely through the CLI
+2. By way of your default `$EDITOR`
+
+To add an entry entirely through the CLI:
+
+```bash
+# First ensure your config.toml file contains the project URL:
+echo 'project_url = "https://github.com/org/project"' >> .changelog/config.toml
+
+# Add a new entry whose associated GitHub issue number is 23.
+# Word wrapping will automatically be applied at the boundary specified in your
+# `config.toml` file.
+unclog add --id some-new-feature \
+  --issue 23 \
+  --section breaking-changes \
+  --message "Some *new* feature"
+
+# Same as above, but with shortened parameters
+unclog add -i some-new-feature \
+  -n 23 \
+  -s breaking-changes \
+  -m "Some *new* feature"
+```
+
+To add an entry with your favourite `$EDITOR`:
 
 ```bash
 # First ensure that your $EDITOR environment variable is configured, or you can
@@ -150,6 +188,92 @@ unclog --help
 # Moves all entries in your ".changelog/unreleased" folder to
 # ".changelog/v0.2.0" and ensures the ".changelog/unreleased" folder is empty.
 unclog release --version v0.2.0
+```
+
+#### Configuration
+
+Certain `unclog` settings can be overridden through the use of a configuration
+file in `.changelog/config.toml`. The following TOML shows all of the defaults
+for the configuration. If you don't have a `.changelog/config.toml` file, all of
+the defaults will be assumed.
+
+```toml
+# The GitHub URL for your project.
+#
+# This is mainly necessary if you need to automatically generate changelog
+# entries directly from the CLI. Right now we only support GitHub, but if
+# anyone wants GitLab support please let us know and we'll try implement it
+# too.
+project_url = "https://github.com/org/project"
+
+# What type of project is this?
+#
+# This is only necessary if you want to add component-specific changelog
+# entries. Otherwise just leave it out. At present we only support Rust
+# projects, but we may implement support for other project types by way of
+# demand.
+project_type = "rust"
+
+# The file to use as a Handlebars template for changes added directly through
+# the CLI.
+#
+# Assumes that relative paths are relative to the `.changelog` folder. If this
+# file does not exist, a default template will be used.
+change_template = "change-template.md"
+
+# The number of characters at which to wrap entries automatically added from
+# the CLI.
+wrap = 80
+
+# The heading right at the beginning of the changelog.
+heading = "# CHANGELOG"
+
+# What style of bullet to use for the instances where unclog has to generate
+# bullets for you. Can be "-" or "*".
+bullet_style = "-"
+
+# The message to output when your changelog has no entries yet.
+empty_msg = "Nothing to see here! Add some entries to get started."
+
+# The name of the file (relative to the `.changelog` directory) to use as an
+# epilogue for your changelog (will be appended as-is to the end of your
+# generated changelog).
+epilogue_filename = "epilogue.md"
+
+
+# Settings relating to unreleased changelog entries.
+[unreleased]
+
+# The name of the folder containing unreleased entries, relative to the
+# `.changelog` folder.
+folder = "unreleased"
+
+# The heading to use for the unreleased entries section.
+heading = "## Unreleased"
+
+
+# Settings relating to sets (groups) of changes in the changelog. For example,
+# the "BREAKING CHANGES" section would be considered a change set.
+[change_sets]
+
+# The filename containing a summary of the intended changes. Relative to the
+# change set folder (e.g. `.changelog/unreleased/breaking-changes/summary.md`).
+summary_filename = "summary.md"
+
+# The extension of files in a change set.
+entry_ext = "md"
+
+
+# Settings related to components/sub-modules. Only relevant if you make use of
+# components/sub-modules.
+[components]
+
+# The title to use for the section of entries not relating to a specific
+# component.
+general_entries_title = "General"
+
+# The number of spaces to inject before each component-related entry.
+entry_indent = 2
 ```
 
 ### As a Library
