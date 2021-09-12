@@ -54,6 +54,17 @@ enum Command {
         /// The path to an epilogue to optionally append to the new changelog.
         #[structopt(name = "epilogue", short, long)]
         maybe_epilogue_path: Option<PathBuf>,
+
+        /// Automatically generate a `config.toml` file for your changelog,
+        /// inferring parameters from your environment. This is the same as
+        /// running `unclog generate-config` after `unclog init`.
+        #[structopt(short, long)]
+        gen_config: bool,
+
+        /// If automatically generating configuration, the Git remote from which
+        /// to infer the project URL.
+        #[structopt(short, long, default_value = "origin")]
+        remote: String,
     },
     /// Automatically generate a configuration file, attempting to infer as many
     /// parameters as possible from your project's environment.
@@ -155,7 +166,16 @@ fn main() {
     let result = match opt.cmd {
         Command::Init {
             maybe_epilogue_path,
-        } => Changelog::init_dir(&config, opt.path, maybe_epilogue_path),
+            gen_config,
+            remote,
+        } => init_changelog(
+            &config,
+            &opt.path,
+            &config_path,
+            maybe_epilogue_path,
+            gen_config,
+            &remote,
+        ),
         Command::GenerateConfig { remote, force } => {
             Changelog::generate_config(&config_path, opt.path, remote, force)
         }
@@ -214,6 +234,22 @@ fn main() {
     if let Err(e) = result {
         error!("Failed: {}", e);
         std::process::exit(1);
+    }
+}
+
+fn init_changelog(
+    config: &Config,
+    path: &Path,
+    config_path: &Path,
+    maybe_epilogue_path: Option<PathBuf>,
+    gen_config: bool,
+    remote: &str,
+) -> Result<()> {
+    Changelog::init_dir(config, path, maybe_epilogue_path)?;
+    if gen_config {
+        Changelog::generate_config(config_path, path, remote, true)
+    } else {
+        Ok(())
     }
 }
 
