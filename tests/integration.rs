@@ -50,15 +50,21 @@ fn full() {
 fn change_template_rendering() {
     init_logger();
     let config = Config::read_from_file("./tests/full/config.toml").unwrap();
-    let rendered_change = Changelog::render_unreleased_entry_from_template(
-        &config,
-        Path::new("./tests/full"),
-        "breaking-changes",
-        None,
-        "some-new-breaking-change",
-        PlatformId::Issue(123),
-        "This introduces a new *breaking* change",
-    )
-    .unwrap();
-    assert_eq!(rendered_change, "- This introduces a new *breaking* change\n  ([#123](https://github.com/org/project/issues/123))")
+    let cases = vec![
+        (PlatformId::Issue(123), "- This introduces a new *breaking* change\n  ([#123](https://github.com/org/project/issues/123))"),
+        (PlatformId::PullRequest(23), "- This introduces a new *breaking* change\n  ([#23](https://github.com/org/project/pull/23))"),
+    ];
+    for (platform_id, expected) in cases {
+        let actual = Changelog::render_unreleased_entry_from_template(
+            &config,
+            Path::new("./tests/full"),
+            "breaking-changes",
+            None,
+            "some-new-breaking-change",
+            platform_id,
+            "This introduces a new *breaking* change",
+        )
+        .unwrap();
+        assert_eq!(actual, expected);
+    }
 }
