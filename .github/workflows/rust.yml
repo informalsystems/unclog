@@ -55,15 +55,15 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             target_name: Linux
             os: ubuntu-latest
-            debug_cmd: ls -lah ./target/x86_64-unknown-linux-gnu/release/
+            bin_path: ./target/x86_64-unknown-linux-gnu/release/unclog
           - target: x86_64-apple-darwin
             target_name: macOS
             os: macos-latest
-            debug_cmd: ls -lah ./target/x86_64-apple-darwin/release/
+            bin_path: ./target/x86_64-apple-darwin/release/unclog
           - target: x86_64-pc-windows-gnu
             target_name: Windows
             os: windows-latest
-            debug_cmd: dir target\x86_64-pc-windows-gnu\release\
+            bin_path: target\x86_64-pc-windows-gnu\release\unclog.exe
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -75,5 +75,8 @@ jobs:
         with:
           command: build
           args: --bin unclog --release --all-features --target ${{ matrix.target }}
-      - name: Debug
-        run: ${{ matrix.debug_cmd }}
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: bin-${{ matrix.target }}
+          path: ${{ matrix.bin_path }}
