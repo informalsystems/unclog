@@ -4,7 +4,7 @@ use log::error;
 use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use unclog::{Changelog, Config, Error, PlatformId, ProjectType, Result, RustProject};
+use unclog::{Changelog, Config, Error, PlatformId, Result};
 
 const RELEASE_SUMMARY_TEMPLATE: &str = r#"<!--
     Add a summary for the release here.
@@ -121,12 +121,6 @@ enum Command {
         /// Only render unreleased changes.
         #[structopt(short, long)]
         unreleased: bool,
-
-        /// The type of project this is. Overrides the project type specified in
-        /// the configuration file. If not specified, unclog will attempt to
-        /// autodetect the project type.
-        #[structopt(name = "type", short, long)]
-        maybe_project_type: Option<ProjectType>,
     },
     /// Release any unreleased features.
     Release {
@@ -179,10 +173,7 @@ fn main() {
         Command::GenerateConfig { remote, force } => {
             Changelog::generate_config(&config_path, opt.path, remote, force)
         }
-        Command::Build {
-            unreleased,
-            maybe_project_type,
-        } => build_changelog(&config, &opt.path, unreleased, maybe_project_type),
+        Command::Build { unreleased } => build_changelog(&config, &opt.path, unreleased),
         Command::Add {
             editor,
             maybe_component,
@@ -253,21 +244,8 @@ fn init_changelog(
     }
 }
 
-fn build_changelog(
-    config: &Config,
-    path: &Path,
-    unreleased: bool,
-    maybe_project_type: Option<ProjectType>,
-) -> Result<()> {
-    let project_type = match maybe_project_type {
-        Some(pt) => pt,
-        None => ProjectType::autodetect(std::fs::canonicalize(path)?.parent().unwrap())?,
-    };
-    log::info!("Project type: {}", project_type);
-    let project = match project_type {
-        ProjectType::Rust => RustProject::new(path),
-    };
-    let changelog = project.read_changelog(config)?;
+fn build_changelog(config: &Config, path: &Path, unreleased: bool) -> Result<()> {
+    let changelog = Changelog::read_from_dir(config, path)?;
     log::info!("Success!");
     if unreleased {
         println!("{}", changelog.render_unreleased(config)?);

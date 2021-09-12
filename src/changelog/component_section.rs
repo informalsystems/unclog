@@ -1,7 +1,7 @@
 use crate::changelog::change_set_section::indent_entries;
 use crate::changelog::entry::read_entries_sorted;
 use crate::changelog::fs_utils::{entry_filter, path_to_str, read_and_filter_dir};
-use crate::{ComponentLoader, Config, Entry, Error, Result};
+use crate::{Config, Entry, Error, Result};
 use log::debug;
 use std::ffi::OsStr;
 use std::fs;
@@ -27,10 +27,9 @@ impl ComponentSection {
     }
 
     /// Attempt to load this component section from the given directory.
-    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P>(config: &Config, path: P) -> Result<Self>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
     {
         let path = path.as_ref();
         let name = path
@@ -40,8 +39,8 @@ impl ComponentSection {
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
         debug!("Looking up component: {}", name);
-        let maybe_component = component_loader.get_component(&name)?;
-        let maybe_component_path = maybe_component.map(|c| c.rel_path).map(path_to_str);
+        let maybe_component = config.components.all.get(&name);
+        let maybe_component_path = maybe_component.map(|c| &c.path).map(path_to_str);
         match &maybe_component_path {
             Some(component_path) => debug!("Found component \"{}\" in: {}", name, component_path),
             None => debug!("Could not find component \"{}\"", name),

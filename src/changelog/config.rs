@@ -1,9 +1,10 @@
 //! Configuration-related types.
 
 use super::fs_utils::{path_to_str, read_to_string_opt};
-use crate::{Error, ProjectType, Result};
+use crate::{Component, Error, Result};
 use log::{debug, info};
 use serde::{de::Error as _, Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
@@ -21,15 +22,6 @@ pub struct Config {
         skip_serializing_if = "is_default"
     )]
     pub maybe_project_url: Option<Url>,
-    /// The project type. At present, we only support Rust-based projects, but
-    /// this is only important for projects that make use of components.
-    #[serde(
-        default,
-        rename = "project_type",
-        with = "crate::s11n::optional_from_str",
-        skip_serializing_if = "is_default"
-    )]
-    pub maybe_project_type: Option<ProjectType>,
     /// The path to a file containing the change template to use when
     /// automatically adding new changelog entries. Relative to the `.changelog`
     /// folder.
@@ -86,7 +78,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             maybe_project_url: None,
-            maybe_project_type: None,
             change_template: Self::default_change_template(),
             wrap: Self::default_wrap(),
             heading: Self::default_heading(),
@@ -291,10 +282,19 @@ impl ChangeSetsConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComponentsConfig {
-    #[serde(default = "ComponentsConfig::default_general_entries_title")]
+    #[serde(
+        default = "ComponentsConfig::default_general_entries_title",
+        skip_serializing_if = "ComponentsConfig::is_default_general_entries_title"
+    )]
     pub general_entries_title: String,
-    #[serde(default = "ComponentsConfig::default_entry_indent")]
+    #[serde(
+        default = "ComponentsConfig::default_entry_indent",
+        skip_serializing_if = "ComponentsConfig::is_default_entry_indent"
+    )]
     pub entry_indent: u8,
+    /// All of the components themselves.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub all: HashMap<String, Component>,
 }
 
 impl Default for ComponentsConfig {
@@ -302,6 +302,7 @@ impl Default for ComponentsConfig {
         Self {
             general_entries_title: Self::default_general_entries_title(),
             entry_indent: Self::default_entry_indent(),
+            all: HashMap::default(),
         }
     }
 }
@@ -311,8 +312,16 @@ impl ComponentsConfig {
         "General".to_owned()
     }
 
+    fn is_default_general_entries_title(t: &str) -> bool {
+        t == Self::default_general_entries_title()
+    }
+
     fn default_entry_indent() -> u8 {
         2
+    }
+
+    fn is_default_entry_indent(i: &u8) -> bool {
+        *i == Self::default_entry_indent()
     }
 }
 

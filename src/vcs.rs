@@ -113,7 +113,8 @@ impl GitHubProject {
 
     pub fn url(&self) -> Url {
         let url_str = self.url_str();
-        Url::parse(&url_str).expect(&format!("failed to parse URL: {}", url_str))
+        Url::parse(&url_str)
+            .unwrap_or_else(|e| panic!("failed to parse URL \"{}\": {}", url_str, e.to_string()))
     }
 }
 

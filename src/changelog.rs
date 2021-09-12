@@ -2,6 +2,7 @@
 
 mod change_set;
 mod change_set_section;
+mod component;
 mod component_section;
 pub mod config;
 mod entry;
@@ -10,6 +11,7 @@ mod release;
 
 pub use change_set::ChangeSet;
 pub use change_set_section::ChangeSetSection;
+pub use component::Component;
 pub use component_section::ComponentSection;
 pub use entry::Entry;
 pub use release::Release;
@@ -19,7 +21,7 @@ use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
 use crate::fs_utils::{
     self, ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
 };
-use crate::{ComponentLoader, Error, GitHubProject, PlatformId, Result};
+use crate::{Error, GitHubProject, PlatformId, Result};
 use config::Config;
 use log::{debug, info, warn};
 use std::convert::TryFrom;
@@ -167,10 +169,9 @@ impl Changelog {
     }
 
     /// Attempt to read a full changelog from the given directory.
-    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P>(config: &Config, path: P) -> Result<Self>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
     {
         let path = path.as_ref();
         info!(
@@ -180,16 +181,13 @@ impl Changelog {
         if !fs::metadata(path)?.is_dir() {
             return Err(Error::ExpectedDir(fs_utils::path_to_str(path)));
         }
-        let unreleased = ChangeSet::read_from_dir_opt(
-            config,
-            path.join(&config.unreleased.folder),
-            component_loader,
-        )?;
+        let unreleased =
+            ChangeSet::read_from_dir_opt(config, path.join(&config.unreleased.folder))?;
         debug!("Scanning for releases in {}", path.display());
         let release_dirs = read_and_filter_dir(path, |e| release_dir_filter(config, e))?;
         let mut releases = release_dirs
             .into_iter()
-            .map(|path| Release::read_from_dir(config, path, component_loader))
+            .map(|path| Release::read_from_dir(config, path))
             .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
         releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
@@ -208,7 +206,7 @@ impl Changelog {
         config: &Config,
         path: P,
         section: S,
-        component: Option<C>,
+        maybe_component: Option<C>,
         id: I,
         content: O,
     ) -> Result<()>
@@ -226,7 +224,7 @@ impl Changelog {
         let section_path = unreleased_path.join(section);
         ensure_dir(&section_path)?;
         let mut entry_dir = section_path;
-        if let Some(component) = component {
+        if let Some(component) = maybe_component {
             entry_dir = entry_dir.join(component.as_ref());
             ensure_dir(&entry_dir)?;
         }

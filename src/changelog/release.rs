@@ -1,6 +1,6 @@
 use crate::changelog::fs_utils::path_to_str;
 use crate::changelog::parsing_utils::extract_release_version;
-use crate::{ChangeSet, ComponentLoader, Config, Error, Result, Version};
+use crate::{ChangeSet, Config, Error, Result, Version};
 use log::debug;
 use std::path::Path;
 
@@ -17,10 +17,9 @@ pub struct Release {
 
 impl Release {
     /// Attempt to read a single release from the given directory.
-    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P>(config: &Config, path: P) -> Result<Self>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
     {
         let path = path.as_ref().to_path_buf();
         debug!("Loading release from {}", path.display());
@@ -37,7 +36,7 @@ impl Release {
         Ok(Self {
             id,
             version,
-            changes: ChangeSet::read_from_dir(config, path, component_loader)?,
+            changes: ChangeSet::read_from_dir(config, path)?,
         })
     }
 

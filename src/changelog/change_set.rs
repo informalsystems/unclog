@@ -1,6 +1,6 @@
 use crate::changelog::fs_utils::{read_and_filter_dir, read_to_string_opt};
 use crate::changelog::parsing_utils::trim_newlines;
-use crate::{ChangeSetSection, ComponentLoader, Config, Error, Result};
+use crate::{ChangeSetSection, Config, Error, Result};
 use log::debug;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -27,10 +27,9 @@ impl ChangeSet {
     }
 
     /// Attempt to read a single change set from the given directory.
-    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P>(config: &Config, path: P) -> Result<Self>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
     {
         let path = path.as_ref();
         debug!("Loading change set from {}", path.display());
@@ -39,7 +38,7 @@ impl ChangeSet {
         let section_dirs = read_and_filter_dir(path, change_set_section_filter)?;
         let mut sections = section_dirs
             .into_iter()
-            .map(|path| ChangeSetSection::read_from_dir(config, path, component_loader))
+            .map(|path| ChangeSetSection::read_from_dir(config, path))
             .collect::<Result<Vec<ChangeSetSection>>>()?;
         // Sort sections alphabetically
         sections.sort_by(|a, b| a.title.cmp(&b.title));
@@ -52,21 +51,16 @@ impl ChangeSet {
     /// Attempt to read a single change set from the given directory, like
     /// [`ChangeSet::read_from_dir`], but return `Option::None` if the
     /// directory does not exist.
-    pub fn read_from_dir_opt<P, C>(
-        config: &Config,
-        path: P,
-        component_loader: &mut C,
-    ) -> Result<Option<Self>>
+    pub fn read_from_dir_opt<P>(config: &Config, path: P) -> Result<Option<Self>>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
     {
         let path = path.as_ref();
         // The path doesn't exist
         if fs::metadata(path).is_err() {
             return Ok(None);
         }
-        Self::read_from_dir(config, path, component_loader).map(Some)
+        Self::read_from_dir(config, path).map(Some)
     }
 
     pub fn render(&self, config: &Config) -> String {

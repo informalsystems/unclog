@@ -1,7 +1,7 @@
 use crate::changelog::component_section::package_section_filter;
 use crate::changelog::entry::read_entries_sorted;
 use crate::changelog::fs_utils::{entry_filter, path_to_str, read_and_filter_dir};
-use crate::{ComponentLoader, ComponentSection, Config, Entry, Error, Result};
+use crate::{ComponentSection, Config, Entry, Error, Result};
 use log::debug;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -26,10 +26,9 @@ impl ChangeSetSection {
     }
 
     /// Attempt to read a single change set section from the given directory.
-    pub fn read_from_dir<P, C>(config: &Config, path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P>(config: &Config, path: P) -> Result<Self>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
     {
         let path = path.as_ref();
         debug!("Loading section {}", path.display());
@@ -43,7 +42,7 @@ impl ChangeSetSection {
         let component_section_dirs = read_and_filter_dir(path, package_section_filter)?;
         let mut component_sections = component_section_dirs
             .into_iter()
-            .map(|path| ComponentSection::read_from_dir(config, path, component_loader))
+            .map(|path| ComponentSection::read_from_dir(config, path))
             .collect::<Result<Vec<ComponentSection>>>()?;
         // Component sections must be sorted by name
         component_sections.sort_by(|a, b| a.name.cmp(&b.name));
