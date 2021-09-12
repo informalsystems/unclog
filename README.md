@@ -26,7 +26,10 @@ being able to tailor content to each audience: Git commit histories for our
 
 ## Requirements
 
-* Rust v1.54+ with `cargo`
+- Rust v1.54+ with `cargo`
+- Git
+- Your project is hosted on GitHub (for automatic changelog entry generation
+  from the CLI)
 
 ## Installation
 
@@ -313,7 +316,7 @@ as a library instead without the CLI:
 
 ```toml
 [dependencies]
-unclog = { version = "0.3", default-features = false }
+unclog = { version = "0.4", default-features = false }
 ```
 
 ## License
