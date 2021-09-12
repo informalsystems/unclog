@@ -2,38 +2,34 @@
 
 mod change_set;
 mod change_set_section;
+mod component;
 mod component_section;
+pub mod config;
 mod entry;
-pub mod fs_utils;
 mod parsing_utils;
 mod release;
 
 pub use change_set::ChangeSet;
 pub use change_set_section::ChangeSetSection;
+pub use component::Component;
 pub use component_section::ComponentSection;
 pub use entry::Entry;
 pub use release::Release;
+use serde_json::json;
 
-use crate::changelog::fs_utils::{
-    ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
-};
 use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
-use crate::{ComponentLoader, Error, Result};
-use log::{debug, info};
+use crate::fs_utils::{
+    self, ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
+};
+use crate::{Error, GitHubProject, PlatformId, Result};
+use config::Config;
+use log::{debug, info, warn};
+use std::convert::TryFrom;
+use std::fs;
 use std::path::{Path, PathBuf};
-use std::{fmt, fs};
 
-pub const CHANGELOG_HEADING: &str = "# CHANGELOG";
-pub const UNRELEASED_FOLDER: &str = "unreleased";
-pub const UNRELEASED_HEADING: &str = "## Unreleased";
-pub const EPILOGUE_FILENAME: &str = "epilogue.md";
-pub const CHANGE_SET_SUMMARY_FILENAME: &str = "summary.md";
-pub const CHANGE_SET_ENTRY_EXT: &str = "md";
-pub const EMPTY_CHANGELOG_MSG: &str = "Nothing to see here! Add some entries to get started.";
-pub const COMPONENT_GENERAL_ENTRIES_TITLE: &str = "General";
-pub const COMPONENT_NAME_PREFIX: &str = "- ";
-pub const COMPONENT_ENTRY_INDENT: u8 = 2;
-pub const COMPONENT_ENTRY_OVERFLOW_INDENT: u8 = 4;
+const DEFAULT_CHANGE_TEMPLATE: &str =
+    "{{{ bullet }}} {{{ message }}} ([#{{ change_id }}]({{{ change_url }}}))";
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
@@ -58,33 +54,36 @@ impl Changelog {
     }
 
     /// Renders the full changelog to a string.
-    pub fn render_full(&self) -> String {
-        let mut paragraphs = vec![CHANGELOG_HEADING.to_owned()];
+    pub fn render(&self, config: &Config) -> String {
+        let mut paragraphs = vec![config.heading.clone()];
         if self.is_empty() {
-            paragraphs.push(EMPTY_CHANGELOG_MSG.to_owned());
+            paragraphs.push(config.empty_msg.clone());
         } else {
-            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs() {
+            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs(config) {
                 paragraphs.extend(unreleased_paragraphs);
             }
             self.releases
                 .iter()
-                .for_each(|r| paragraphs.push(r.to_string()));
+                .for_each(|r| paragraphs.push(r.render(config)));
             if let Some(epilogue) = self.epilogue.as_ref() {
                 paragraphs.push(epilogue.clone());
             }
         }
-        paragraphs.join("\n\n")
+        format!("{}\n", paragraphs.join("\n\n"))
     }
 
     /// Renders just the unreleased changes to a string.
-    pub fn render_unreleased(&self) -> Result<String> {
-        Ok(self.unreleased_paragraphs()?.join("\n\n"))
+    pub fn render_unreleased(&self, config: &Config) -> Result<String> {
+        Ok(self.unreleased_paragraphs(config)?.join("\n\n"))
     }
 
-    fn unreleased_paragraphs(&self) -> Result<Vec<String>> {
+    fn unreleased_paragraphs(&self, config: &Config) -> Result<Vec<String>> {
         if let Some(unreleased) = self.maybe_unreleased.as_ref() {
             if !unreleased.is_empty() {
-                return Ok(vec![UNRELEASED_HEADING.to_owned(), unreleased.to_string()]);
+                return Ok(vec![
+                    config.unreleased.heading.clone(),
+                    unreleased.render(config),
+                ]);
             }
         }
         Err(Error::NoUnreleasedEntries)
@@ -95,36 +94,84 @@ impl Changelog {
     /// Creates the target folder if it doesn't exist, and optionally copies an
     /// epilogue into it.
     pub fn init_dir<P: AsRef<Path>, E: AsRef<Path>>(
+        config: &Config,
         path: P,
-        epilogue_path: Option<E>,
+        maybe_epilogue_path: Option<E>,
     ) -> Result<()> {
         let path = path.as_ref();
         // Ensure the desired path exists.
         ensure_dir(path)?;
 
         // Optionally copy an epilogue into the target path.
-        let epilogue_path = epilogue_path.as_ref();
-        if let Some(ep) = epilogue_path {
-            let new_epilogue_path = path.join(EPILOGUE_FILENAME);
-            fs::copy(ep, &new_epilogue_path)?;
-            info!(
-                "Copied epilogue from {} to {}",
-                path_to_str(ep),
-                path_to_str(&new_epilogue_path),
-            );
+        let maybe_epilogue_path = maybe_epilogue_path.as_ref();
+        if let Some(ep) = maybe_epilogue_path {
+            let new_epilogue_path = path.join(&config.epilogue_filename);
+            if !fs_utils::file_exists(&new_epilogue_path) {
+                fs::copy(ep, &new_epilogue_path)?;
+                info!(
+                    "Copied epilogue from {} to {}",
+                    path_to_str(ep),
+                    path_to_str(&new_epilogue_path),
+                );
+            } else {
+                info!(
+                    "Epilogue file already exists, not copying: {}",
+                    path_to_str(&new_epilogue_path)
+                );
+            }
         }
         // We want an empty unreleased directory with a .gitkeep file
-        Self::init_empty_unreleased_dir(path)?;
+        Self::init_empty_unreleased_dir(config, path)?;
 
         info!("Success!");
         Ok(())
     }
 
-    /// Attempt to read a full changelog from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
+    /// Attempts to generate a configuration file for the changelog in the given
+    /// path, inferring as many parameters as possible from its environment.
+    pub fn generate_config<P, Q, S>(config_path: P, path: Q, remote: S, force: bool) -> Result<()>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
+        Q: AsRef<Path>,
+        S: AsRef<str>,
+    {
+        let config_path = config_path.as_ref();
+        if fs_utils::file_exists(config_path) {
+            if !force {
+                return Err(Error::ConfigurationFileAlreadyExists(path_to_str(
+                    config_path,
+                )));
+            } else {
+                warn!(
+                    "Overwriting configuration file: {}",
+                    path_to_str(config_path)
+                );
+            }
+        }
+
+        let path = fs::canonicalize(path.as_ref())?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| Error::NoParentFolder(path_to_str(&path)))?;
+        let git_folder = parent.join(".git");
+        let maybe_github_project = if fs_utils::dir_exists(git_folder) {
+            Some(GitHubProject::from_git_repo(parent, remote.as_ref())?)
+        } else {
+            warn!("Parent folder of changelog directory is not a Git repository. Cannot infer whether it is a GitHub project.");
+            None
+        };
+
+        let config = Config {
+            maybe_project_url: maybe_github_project.map(|gp| gp.url()),
+            ..Config::default()
+        };
+        config.write_to_file(config_path)
+    }
+
+    /// Attempt to read a full changelog from the given directory.
+    pub fn read_from_dir<P>(config: &Config, path: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
     {
         let path = path.as_ref();
         info!(
@@ -135,17 +182,17 @@ impl Changelog {
             return Err(Error::ExpectedDir(fs_utils::path_to_str(path)));
         }
         let unreleased =
-            ChangeSet::read_from_dir_opt(path.join(UNRELEASED_FOLDER), component_loader)?;
+            ChangeSet::read_from_dir_opt(config, path.join(&config.unreleased.folder))?;
         debug!("Scanning for releases in {}", path.display());
-        let release_dirs = read_and_filter_dir(path, release_dir_filter)?;
+        let release_dirs = read_and_filter_dir(path, |e| release_dir_filter(config, e))?;
         let mut releases = release_dirs
             .into_iter()
-            .map(|path| Release::read_from_dir(path, component_loader))
+            .map(|path| Release::read_from_dir(config, path))
             .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
         releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
-        let epilogue =
-            read_to_string_opt(path.join(EPILOGUE_FILENAME))?.map(|e| trim_newlines(&e).to_owned());
+        let epilogue = read_to_string_opt(path.join(&config.epilogue_filename))?
+            .map(|e| trim_newlines(&e).to_owned());
         Ok(Self {
             maybe_unreleased: unreleased,
             releases,
@@ -156,9 +203,10 @@ impl Changelog {
     /// Adds a changelog entry with the given ID to the specified section in
     /// the `unreleased` folder.
     pub fn add_unreleased_entry<P, S, C, I, O>(
+        config: &Config,
         path: P,
         section: S,
-        component: Option<C>,
+        maybe_component: Option<C>,
         id: I,
         content: O,
     ) -> Result<()>
@@ -170,17 +218,17 @@ impl Changelog {
         O: AsRef<str>,
     {
         let path = path.as_ref();
-        let unreleased_path = path.join(UNRELEASED_FOLDER);
+        let unreleased_path = path.join(&config.unreleased.folder);
         ensure_dir(&unreleased_path)?;
         let section = section.as_ref();
         let section_path = unreleased_path.join(section);
         ensure_dir(&section_path)?;
         let mut entry_dir = section_path;
-        if let Some(component) = component {
+        if let Some(component) = maybe_component {
             entry_dir = entry_dir.join(component.as_ref());
             ensure_dir(&entry_dir)?;
         }
-        let entry_path = entry_dir.join(entry_id_to_filename(id));
+        let entry_path = entry_dir.join(entry_id_to_filename(config, id));
         // We don't want to overwrite any existing entries
         if fs::metadata(&entry_path).is_ok() {
             return Err(Error::FileExists(path_to_str(&entry_path)));
@@ -190,8 +238,110 @@ impl Changelog {
         Ok(())
     }
 
+    /// Attempts to add an unreleased changelog entry from the given parameters,
+    /// rendering them through the change template specified in the
+    /// configuration file.
+    ///
+    /// The change template is assumed to be in [Handlebars] format.
+    ///
+    /// [Handlebars]: https://handlebarsjs.com/
+    pub fn add_unreleased_entry_from_template(
+        config: &Config,
+        path: &Path,
+        section: &str,
+        component: Option<String>,
+        id: &str,
+        platform_id: PlatformId,
+        message: &str,
+    ) -> Result<()> {
+        let rendered_change = Self::render_unreleased_entry_from_template(
+            config,
+            path,
+            section,
+            component.clone(),
+            id,
+            platform_id,
+            message,
+        )?;
+        let mut id = id.to_owned();
+        if !id.starts_with(&format!("{}-", platform_id.id())) {
+            id = format!("{}-{}", platform_id.id(), id);
+            debug!("Automatically prepending platform ID to change ID: {}", id);
+        }
+        Self::add_unreleased_entry(config, path, section, component, &id, &rendered_change)
+    }
+
+    /// Renders an unreleased changelog entry from the given parameters to a
+    /// string, making use of the change template specified in the configuration
+    /// file.
+    ///
+    /// The change template is assumed to be in [Handlebars] format.
+    ///
+    /// [Handlebars]: https://handlebarsjs.com/
+    pub fn render_unreleased_entry_from_template(
+        config: &Config,
+        path: &Path,
+        section: &str,
+        component: Option<String>,
+        id: &str,
+        platform_id: PlatformId,
+        message: &str,
+    ) -> Result<String> {
+        let project_url = config
+            .maybe_project_url
+            .as_ref()
+            .ok_or(Error::MissingProjectUrl)?;
+        // We only support GitHub projects at the moment
+        let github_project = GitHubProject::try_from(project_url)?;
+        let mut change_template_file = PathBuf::from(&config.change_template);
+        if change_template_file.is_relative() {
+            change_template_file = path.join(change_template_file);
+        }
+        info!(
+            "Loading change template from: {}",
+            fs_utils::path_to_str(&change_template_file)
+        );
+        let change_template = fs_utils::read_to_string_opt(&change_template_file)?
+            .unwrap_or_else(|| DEFAULT_CHANGE_TEMPLATE.to_owned());
+        debug!("Loaded change template:\n{}", change_template);
+        let mut hb = handlebars::Handlebars::new();
+        hb.register_template_string("change", change_template)?;
+
+        let (platform_id_field, platform_id_val) = match platform_id {
+            PlatformId::Issue(issue) => ("issue", issue),
+            PlatformId::PullRequest(pull_request) => ("pull_request", pull_request),
+        };
+        let template_params = json!({
+            "project_url": github_project.to_string(),
+            "section": section,
+            "component": component,
+            "id": id,
+            platform_id_field: platform_id_val,
+            "message": message,
+            "change_url": github_project.change_url(platform_id)?.to_string(),
+            "change_id": platform_id.id(),
+            "bullet": config.bullet_style.to_string(),
+        });
+        debug!(
+            "Template parameters: {}",
+            serde_json::to_string_pretty(&template_params)?
+        );
+        let rendered_change = hb.render("change", &template_params)?;
+        let wrapped_rendered = textwrap::wrap(
+            &rendered_change,
+            textwrap::Options::new(config.wrap as usize)
+                .subsequent_indent("  ")
+                .break_words(false)
+                .word_separator(textwrap::word_separators::AsciiSpace),
+        )
+        .join("\n");
+        debug!("Rendered wrapped change:\n{}", wrapped_rendered);
+        Ok(wrapped_rendered)
+    }
+
     /// Compute the file system path to the entry with the given parameters.
     pub fn get_entry_path<P, R, S, C, I>(
+        config: &Config,
         path: P,
         release: R,
         section: S,
@@ -209,12 +359,16 @@ impl Changelog {
         if let Some(component) = component {
             path = path.join(component.as_ref());
         }
-        path.join(entry_id_to_filename(id))
+        path.join(entry_id_to_filename(config, id))
     }
 
     /// Moves the `unreleased` folder from our changelog to a directory whose
     /// name is the given version.
-    pub fn prepare_release_dir<P: AsRef<Path>, S: AsRef<str>>(path: P, version: S) -> Result<()> {
+    pub fn prepare_release_dir<P: AsRef<Path>, S: AsRef<str>>(
+        config: &Config,
+        path: P,
+        version: S,
+    ) -> Result<()> {
         let path = path.as_ref();
         let version = version.as_ref();
 
@@ -227,7 +381,7 @@ impl Changelog {
             return Err(Error::DirExists(path_to_str(&version_path)));
         }
 
-        let unreleased_path = path.join(UNRELEASED_FOLDER);
+        let unreleased_path = path.join(&config.unreleased.folder);
         // The unreleased folder must exist
         if fs::metadata(&unreleased_path).is_err() {
             return Err(Error::ExpectedDir(path_to_str(&unreleased_path)));
@@ -242,11 +396,11 @@ impl Changelog {
         // We no longer need a .gitkeep in the release directory, if there is one
         rm_gitkeep(&version_path)?;
 
-        Self::init_empty_unreleased_dir(path)
+        Self::init_empty_unreleased_dir(config, path)
     }
 
-    fn init_empty_unreleased_dir(path: &Path) -> Result<()> {
-        let unreleased_dir = path.join(UNRELEASED_FOLDER);
+    fn init_empty_unreleased_dir(config: &Config, path: &Path) -> Result<()> {
+        let unreleased_dir = path.join(&config.unreleased.folder);
         ensure_dir(&unreleased_dir)?;
         let unreleased_gitkeep = unreleased_dir.join(".gitkeep");
         fs::write(&unreleased_gitkeep, "")?;
@@ -255,24 +409,18 @@ impl Changelog {
     }
 }
 
-impl fmt::Display for Changelog {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{}", self.render_full())
-    }
+fn entry_id_to_filename<S: AsRef<str>>(config: &Config, id: S) -> String {
+    format!("{}.{}", id.as_ref(), config.change_sets.entry_ext)
 }
 
-fn entry_id_to_filename<S: AsRef<str>>(id: S) -> String {
-    format!("{}.{}", id.as_ref(), CHANGE_SET_ENTRY_EXT)
-}
-
-fn release_dir_filter(e: fs::DirEntry) -> Option<crate::Result<PathBuf>> {
+fn release_dir_filter(config: &Config, e: fs::DirEntry) -> Option<crate::Result<PathBuf>> {
     let file_name = e.file_name();
     let file_name = file_name.to_string_lossy();
     let meta = match e.metadata() {
         Ok(m) => m,
         Err(e) => return Some(Err(Error::Io(e))),
     };
-    if meta.is_dir() && file_name != UNRELEASED_FOLDER {
+    if meta.is_dir() && file_name != config.unreleased.folder {
         Some(Ok(e.path()))
     } else {
         None

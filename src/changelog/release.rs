@@ -1,8 +1,7 @@
 use crate::changelog::fs_utils::path_to_str;
 use crate::changelog::parsing_utils::extract_release_version;
-use crate::{ChangeSet, ComponentLoader, Error, Result, Version};
+use crate::{ChangeSet, Config, Error, Result, Version};
 use log::debug;
-use std::fmt;
 use std::path::Path;
 
 /// The changes associated with a specific release.
@@ -18,10 +17,9 @@ pub struct Release {
 
 impl Release {
     /// Attempt to read a single release from the given directory.
-    pub fn read_from_dir<P, C>(path: P, component_loader: &mut C) -> Result<Self>
+    pub fn read_from_dir<P>(config: &Config, path: P) -> Result<Self>
     where
         P: AsRef<Path>,
-        C: ComponentLoader,
     {
         let path = path.as_ref().to_path_buf();
         debug!("Loading release from {}", path.display());
@@ -38,17 +36,17 @@ impl Release {
         Ok(Self {
             id,
             version,
-            changes: ChangeSet::read_from_dir(path, component_loader)?,
+            changes: ChangeSet::read_from_dir(config, path)?,
         })
     }
-}
 
-impl fmt::Display for Release {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    /// Attempt to render this release to a string using the given
+    /// configuration.
+    pub fn render(&self, config: &Config) -> String {
         let mut paragraphs = vec![format!("## {}", self.id)];
         if !self.changes.is_empty() {
-            paragraphs.push(self.changes.to_string());
+            paragraphs.push(self.changes.render(config));
         }
-        write!(f, "{}", paragraphs.join("\n\n"))
+        paragraphs.join("\n\n")
     }
 }

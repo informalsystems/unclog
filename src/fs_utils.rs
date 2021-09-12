@@ -1,19 +1,19 @@
 //! File system-related utilities to help with manipulating changelogs.
 
-use crate::{Error, Result, CHANGE_SET_ENTRY_EXT};
+use crate::{Config, Error, Result};
 use log::{debug, info};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub(crate) fn path_to_str<P: AsRef<Path>>(path: P) -> String {
+pub fn path_to_str<P: AsRef<Path>>(path: P) -> String {
     path.as_ref().to_string_lossy().to_string()
 }
 
-pub(crate) fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String> {
+pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String> {
     Ok(fs::read_to_string(path)?)
 }
 
-pub(crate) fn read_to_string_opt<P: AsRef<Path>>(path: P) -> Result<Option<String>> {
+pub fn read_to_string_opt<P: AsRef<Path>>(path: P) -> Result<Option<String>> {
     let path = path.as_ref();
     if fs::metadata(path).is_err() {
         return Ok(None);
@@ -21,7 +21,7 @@ pub(crate) fn read_to_string_opt<P: AsRef<Path>>(path: P) -> Result<Option<Strin
     read_to_string(path).map(Some)
 }
 
-pub(crate) fn ensure_dir(path: &Path) -> Result<()> {
+pub fn ensure_dir(path: &Path) -> Result<()> {
     if fs::metadata(path).is_err() {
         fs::create_dir(path)?;
         info!("Created directory: {}", path_to_str(path));
@@ -32,7 +32,7 @@ pub(crate) fn ensure_dir(path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn rm_gitkeep(path: &Path) -> Result<()> {
+pub fn rm_gitkeep(path: &Path) -> Result<()> {
     let path = path.join(".gitkeep");
     if fs::metadata(&path).is_ok() {
         fs::remove_file(&path)?;
@@ -41,7 +41,7 @@ pub(crate) fn rm_gitkeep(path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn read_and_filter_dir<F>(path: &Path, filter: F) -> Result<Vec<PathBuf>>
+pub fn read_and_filter_dir<F>(path: &Path, filter: F) -> Result<Vec<PathBuf>>
 where
     F: Fn(fs::DirEntry) -> Option<Result<PathBuf>>,
 {
@@ -53,25 +53,38 @@ where
         .collect::<Result<Vec<PathBuf>>>()
 }
 
-pub(crate) fn entry_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
+pub fn entry_filter(config: &Config, e: fs::DirEntry) -> Option<Result<PathBuf>> {
     let meta = match e.metadata() {
         Ok(m) => m,
         Err(e) => return Some(Err(Error::Io(e))),
     };
     let path = e.path();
     let ext = path.extension()?.to_str()?;
-    if meta.is_file() && ext == CHANGE_SET_ENTRY_EXT {
+    if meta.is_file() && ext == config.change_sets.entry_ext {
         Some(Ok(path))
     } else {
         None
     }
 }
 
-pub(crate) fn get_relative_path<P: AsRef<Path>, Q: AsRef<Path>>(
-    path: P,
-    prefix: Q,
-) -> Result<PathBuf> {
+pub fn get_relative_path<P: AsRef<Path>, Q: AsRef<Path>>(path: P, prefix: Q) -> Result<PathBuf> {
     Ok(path.as_ref().strip_prefix(prefix.as_ref())?.to_path_buf())
+}
+
+pub fn file_exists<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+    if let Ok(meta) = fs::metadata(&path) {
+        return meta.is_file();
+    }
+    false
+}
+
+pub fn dir_exists<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+    if let Ok(meta) = fs::metadata(&path) {
+        return meta.is_dir();
+    }
+    false
 }
 
 #[cfg(test)]

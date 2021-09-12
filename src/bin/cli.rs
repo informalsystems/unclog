@@ -1,38 +1,47 @@
 //! `unclog` helps you build your changelog.
 
+use log::error;
 use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::path::{Path, PathBuf};
 use structopt::StructOpt;
-use unclog::{
-    Changelog, Error, ProjectType, Result, RustProject, CHANGE_SET_SUMMARY_FILENAME,
-    UNRELEASED_FOLDER,
-};
+use unclog::{Changelog, Config, Error, PlatformId, Result};
 
 const RELEASE_SUMMARY_TEMPLATE: &str = r#"<!--
     Add a summary for the release here.
 
     If you don't change this message, or if this file is empty, the release
-    will not be created.
--->
+    will not be created. -->
 "#;
 
 const ADD_CHANGE_TEMPLATE: &str = r#"<!--
     Add your entry's details here (in Markdown format).
 
     If you don't change this message, or if this file is empty, the entry will
-    not be created.
--->
+    not be created. -->
 "#;
+
+const DEFAULT_CHANGELOG_DIR: &str = ".changelog";
+const DEFAULT_CONFIG_FILENAME: &str = "config.toml";
 
 #[derive(StructOpt)]
 struct Opt {
     /// The path to the changelog folder.
-    #[structopt(short, long, default_value = ".changelog")]
+    #[structopt(short, long, default_value = DEFAULT_CHANGELOG_DIR)]
     path: PathBuf,
+
+    /// The path to the changelog configuration file. If a relative path is
+    /// provided, it is assumed this is relative to the `path` parameter. If no
+    /// configuration file exists, defaults will be used for all parameters.
+    #[structopt(short, long, default_value = DEFAULT_CONFIG_FILENAME)]
+    config_file: PathBuf,
 
     /// Increase output logging verbosity to DEBUG level.
     #[structopt(short, long)]
     verbose: bool,
+
+    /// Suppress all output logging (overrides `--verbose`).
+    #[structopt(short, long)]
+    quiet: bool,
 
     #[structopt(subcommand)]
     cmd: Command,
@@ -44,7 +53,29 @@ enum Command {
     Init {
         /// The path to an epilogue to optionally append to the new changelog.
         #[structopt(name = "epilogue", short, long)]
-        epilogue_path: Option<PathBuf>,
+        maybe_epilogue_path: Option<PathBuf>,
+
+        /// Automatically generate a `config.toml` file for your changelog,
+        /// inferring parameters from your environment. This is the same as
+        /// running `unclog generate-config` after `unclog init`.
+        #[structopt(short, long)]
+        gen_config: bool,
+
+        /// If automatically generating configuration, the Git remote from which
+        /// to infer the project URL.
+        #[structopt(short, long, default_value = "origin")]
+        remote: String,
+    },
+    /// Automatically generate a configuration file, attempting to infer as many
+    /// parameters as possible from your project's environment.
+    GenerateConfig {
+        /// The Git remote from which to infer the project URL.
+        #[structopt(short, long, default_value = "origin")]
+        remote: String,
+
+        /// Overwrite any existing configuration file.
+        #[structopt(short, long)]
+        force: bool,
     },
     /// Add a change to the unreleased set of changes.
     Add {
@@ -52,9 +83,9 @@ enum Command {
         #[structopt(long, env = "EDITOR")]
         editor: PathBuf,
 
-        /// The component to which this entry should be added
-        #[structopt(short, long)]
-        component: Option<String>,
+        /// The component to which this entry should be added.
+        #[structopt(name = "component", short, long)]
+        maybe_component: Option<String>,
 
         /// The ID of the section to which the change must be added (e.g.
         /// "breaking-changes").
@@ -65,17 +96,31 @@ enum Command {
         /// issue or PR to which the change applies (e.g. "820-change-api").
         #[structopt(short, long)]
         id: String,
+
+        /// The issue number associated with this change, if any. Only relevant
+        /// if the `--message` flag is also provided. Only one of the
+        /// `--issue-no` or `--pull-request` flags can be specified at a time.
+        #[structopt(name = "issue_no", short = "n", long = "issue-no")]
+        maybe_issue_no: Option<u32>,
+
+        /// The number of the pull request associated with this change, if any.
+        /// Only relevant if the `--message` flag is also provided. Only one of
+        /// the `--issue-no` or `--pull-request` flags can be specified at a
+        /// time.
+        #[structopt(name = "pull_request", short, long = "pull-request")]
+        maybe_pull_request: Option<u32>,
+
+        /// If specified, the change will automatically be generated from the
+        /// default change template. Requires a project URL to be specified in
+        /// the changelog configuration file.
+        #[structopt(name = "message", short, long)]
+        maybe_message: Option<String>,
     },
     /// Build the changelog from the input path and write the output to stdout.
     Build {
         /// Only render unreleased changes.
         #[structopt(short, long)]
         unreleased: bool,
-
-        /// The type of project this is. If not supplied, unclog will attempt
-        /// to autodetect it.
-        #[structopt(name = "type", short, long)]
-        project_type: Option<ProjectType>,
     },
     /// Release any unreleased features.
     Release {
@@ -92,7 +137,9 @@ enum Command {
 fn main() {
     let opt: Opt = Opt::from_args();
     TermLogger::init(
-        if opt.verbose {
+        if opt.quiet {
+            LevelFilter::Off
+        } else if opt.verbose {
             LevelFilter::Debug
         } else {
             LevelFilter::Info
@@ -103,58 +150,127 @@ fn main() {
     )
     .unwrap();
 
+    let config_path = if opt.config_file.is_relative() {
+        opt.path.join(opt.config_file)
+    } else {
+        opt.config_file
+    };
+    let config = Config::read_from_file(&config_path).unwrap();
+
     let result = match opt.cmd {
-        Command::Build {
-            unreleased,
-            project_type,
-        } => build_changelog(&opt.path, unreleased, project_type),
+        Command::Init {
+            maybe_epilogue_path,
+            gen_config,
+            remote,
+        } => init_changelog(
+            &config,
+            &opt.path,
+            &config_path,
+            maybe_epilogue_path,
+            gen_config,
+            &remote,
+        ),
+        Command::GenerateConfig { remote, force } => {
+            Changelog::generate_config(&config_path, opt.path, remote, force)
+        }
+        Command::Build { unreleased } => build_changelog(&config, &opt.path, unreleased),
         Command::Add {
             editor,
-            component,
+            maybe_component,
             section,
             id,
-        } => add_unreleased_entry(&editor, &opt.path, &section, component, &id),
-        Command::Init { epilogue_path } => Changelog::init_dir(opt.path, epilogue_path),
-        Command::Release { editor, version } => prepare_release(&editor, &opt.path, &version),
+            maybe_issue_no,
+            maybe_pull_request,
+            maybe_message,
+        } => match maybe_message {
+            Some(message) => match maybe_issue_no {
+                Some(issue_no) => match maybe_pull_request {
+                    Some(_) => Err(Error::EitherIssueNoOrPullRequest),
+                    None => Changelog::add_unreleased_entry_from_template(
+                        &config,
+                        &opt.path,
+                        &section,
+                        maybe_component,
+                        &id,
+                        PlatformId::Issue(issue_no),
+                        &message,
+                    ),
+                },
+                None => match maybe_pull_request {
+                    Some(pull_request) => Changelog::add_unreleased_entry_from_template(
+                        &config,
+                        &opt.path,
+                        &section,
+                        maybe_component,
+                        &id,
+                        PlatformId::PullRequest(pull_request),
+                        &message,
+                    ),
+                    None => Err(Error::MissingIssueNoOrPullRequest),
+                },
+            },
+            None => add_unreleased_entry_with_editor(
+                &config,
+                &editor,
+                &opt.path,
+                &section,
+                maybe_component,
+                &id,
+            ),
+        },
+        Command::Release { editor, version } => {
+            prepare_release(&config, &editor, &opt.path, &version)
+        }
     };
     if let Err(e) = result {
-        log::error!("Failed: {}", e);
+        error!("Failed: {}", e);
         std::process::exit(1);
     }
 }
 
-fn build_changelog(
+fn init_changelog(
+    config: &Config,
     path: &Path,
-    unreleased: bool,
-    maybe_project_type: Option<ProjectType>,
+    config_path: &Path,
+    maybe_epilogue_path: Option<PathBuf>,
+    gen_config: bool,
+    remote: &str,
 ) -> Result<()> {
-    let project_type = match maybe_project_type {
-        Some(pt) => pt,
-        None => ProjectType::autodetect(std::fs::canonicalize(path)?.parent().unwrap())?,
-    };
-    log::info!("Project type: {}", project_type);
-    let project = match project_type {
-        ProjectType::Rust => RustProject::new(path),
-    };
-    let changelog = project.read_changelog()?;
+    Changelog::init_dir(config, path, maybe_epilogue_path)?;
+    if gen_config {
+        Changelog::generate_config(config_path, path, remote, true)
+    } else {
+        Ok(())
+    }
+}
+
+fn build_changelog(config: &Config, path: &Path, unreleased: bool) -> Result<()> {
+    let changelog = Changelog::read_from_dir(config, path)?;
     log::info!("Success!");
     if unreleased {
-        println!("{}", changelog.render_unreleased()?);
+        println!("{}", changelog.render_unreleased(config)?);
     } else {
-        println!("{}", changelog.render_full());
+        println!("{}", changelog.render(config));
     }
     Ok(())
 }
 
-fn add_unreleased_entry(
+fn add_unreleased_entry_with_editor(
+    config: &Config,
     editor: &Path,
     path: &Path,
     section: &str,
     component: Option<String>,
     id: &str,
 ) -> Result<()> {
-    let entry_path =
-        Changelog::get_entry_path(path, UNRELEASED_FOLDER, section, component.clone(), id);
+    let entry_path = Changelog::get_entry_path(
+        config,
+        path,
+        &config.unreleased.folder,
+        section,
+        component.clone(),
+        id,
+    );
     if std::fs::metadata(&entry_path).is_ok() {
         return Err(Error::FileExists(entry_path.display().to_string()));
     }
@@ -175,15 +291,15 @@ fn add_unreleased_entry(
         return Ok(());
     }
 
-    Changelog::add_unreleased_entry(path, section, component, id, &tmpfile_content)
+    Changelog::add_unreleased_entry(config, path, section, component, id, &tmpfile_content)
 }
 
-fn prepare_release(editor: &Path, path: &Path, version: &str) -> Result<()> {
+fn prepare_release(config: &Config, editor: &Path, path: &Path, version: &str) -> Result<()> {
     // Add the summary to the unreleased folder, since we'll be moving it to
     // the new release folder
     let summary_path = path
-        .join(UNRELEASED_FOLDER)
-        .join(CHANGE_SET_SUMMARY_FILENAME);
+        .join(&config.unreleased.folder)
+        .join(&config.change_sets.summary_filename);
     // If the summary doesn't exist, try to create it
     if std::fs::metadata(&summary_path).is_err() {
         std::fs::write(&summary_path, RELEASE_SUMMARY_TEMPLATE)?;
@@ -202,5 +318,5 @@ fn prepare_release(editor: &Path, path: &Path, version: &str) -> Result<()> {
         return Ok(());
     }
 
-    Changelog::prepare_release_dir(path, version)
+    Changelog::prepare_release_dir(config, path, version)
 }
