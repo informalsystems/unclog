@@ -1,25 +1,8 @@
 //! Integration tests for `unclog`.
 
 use lazy_static::lazy_static;
-use std::{
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
-use unclog::{Changelog, Component, ComponentLoader, Config, PlatformId, Project, Result};
-
-struct MockLoader;
-
-impl ComponentLoader for MockLoader {
-    fn get_component(&mut self, name: &str) -> Result<Option<Component>> {
-        match name {
-            "component2" => Ok(Some(Component {
-                name: "component2".to_owned(),
-                rel_path: PathBuf::from("2nd-component"),
-            })),
-            _ => Ok(None),
-        }
-    }
-}
+use std::{path::Path, sync::Mutex};
+use unclog::{Changelog, Config, PlatformId};
 
 lazy_static! {
     static ref LOGGING_INITIALIZED: Mutex<u8> = Mutex::new(0);
@@ -38,10 +21,14 @@ fn init_logger() {
 
 #[test]
 fn full() {
+    const CONFIG_FILE: &str = r#"
+[components.all]
+component2 = { name = "component2", path = "2nd-component" }
+"#;
+
     init_logger();
-    let project = Project::new_with_component_loader("./tests/full", MockLoader);
-    let config = Config::default();
-    let changelog = project.read_changelog(&config).unwrap();
+    let config = toml::from_str(CONFIG_FILE).unwrap();
+    let changelog = Changelog::read_from_dir(&config, "./tests/full").unwrap();
     let expected = std::fs::read_to_string("./tests/full/expected.md").unwrap();
     assert_eq!(expected, changelog.render(&config));
 }
