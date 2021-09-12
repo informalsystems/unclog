@@ -115,7 +115,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: x86_64-pc-windows-gnu
-          path: ./release/unclog-${{ steps.get_version.outputs.VERSION }}-win-x86_64.tar.bz2
+          path: ./release/unclog-${{ steps.get_version.outputs.VERSION }}-win-x86_64.zip
       - name: Compute SHA256 hashes of binary archives
         run: |
           sha256sum ./release/* > ./release/sha256sum.txt
