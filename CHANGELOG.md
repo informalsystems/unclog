@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## v0.4.0
+
+This version is a pretty major breaking change from the previous one. Some of
+the highlights:
+
+1. Entries can now be automatically generated from the CLI. This is only
+   available, however, for projects hosted on GitHub at the moment, since links
+   to issues/pull requests need to be automatically generated.
+2. A configuration file (`.changelog/config.toml`) can now be specified that
+   allows you to override many of the default settings. See the `README.md` file
+   for more details.
+3. Components/submodules are no longer automatically detected and must be
+   specified through the configuration file. This allows the greatest level of
+   flexibility for all kinds of projects instead of limiting `unclog` to just
+   Rust projects and implementing per-project-type component detection.
+
+### BREAKING CHANGES
+
+- All positional CLI arguments have now been replaced with flagged ones. See
+  `unclog --help` and the project `README.md` for more details.
+  ([#12](https://github.com/informalsystems/unclog/issues/12))
+- Unreleased entries can now automatically be added to changelogs from the CLI.
+  This necessarily introduces configuration to be able to specify the project's
+  GitHub URL ([#13](https://github.com/informalsystems/unclog/issues/13))
+
 ## v0.3.0
 
 This is a minor breaking release that now favours the use of hyphens (`-`) in
@@ -87,3 +112,4 @@ Basic features include:
 * Automating the process of releasing unreleased features
 
 See [README.md](README.md) for more details.
+
