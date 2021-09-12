@@ -17,6 +17,7 @@ jobs:
 
   fmt:
     name: Format
+    needs: cleanup-runs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -31,6 +32,7 @@ jobs:
 
   clippy-json-output:
     name: Clippy check
+    needs: cleanup-runs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -47,6 +49,7 @@ jobs:
 
   build:
     name: Build for ${{ matrix.target_name }}
+    needs: cleanup-runs
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -55,15 +58,21 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             target_name: Linux
             os: ubuntu-latest
-            bin_path: ./target/x86_64-unknown-linux-gnu/release/unclog
+            archive_cmd: |
+              tar cjvf unclog-linux-x86_64.tar.bz2 ./target/x86_64-unknown-linux-gnu/release/unclog
+            archive: unclog-linux-x86_64.tar.bz2
           - target: x86_64-apple-darwin
             target_name: macOS
             os: macos-latest
-            bin_path: ./target/x86_64-apple-darwin/release/unclog
+            archive_cmd: |
+              tar cjvf unclog-macos-x86_64.tar.bz2 ./target/x86_64-apple-darwin/release/unclog
+            archive: unclog-macos-x86_64.tar.bz2
           - target: x86_64-pc-windows-gnu
             target_name: Windows
             os: windows-latest
-            bin_path: target\x86_64-pc-windows-gnu\release\unclog.exe
+            archive_cmd: |
+              Compress-Archive -Path target\x86_64-pc-windows-gnu\release\unclog.exe -DestinationPath unclog-win-x86_64.zip
+            archive: unclog-win-x86_64.zip
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -75,8 +84,10 @@ jobs:
         with:
           command: build
           args: --bin unclog --release --all-features --target ${{ matrix.target }}
-      - name: Upload binary artifact
+      - name: Archive for platform
+        run: ${{ matrix.archive_cmd }}
+      - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: bin-${{ matrix.target }}
-          path: ${{ matrix.bin_path }}
+          name: ${{ matrix.target }}
+          path: ${{ matrix.archive }}
