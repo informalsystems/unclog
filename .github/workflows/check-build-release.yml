@@ -49,7 +49,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    needs: clippy-json-output
+    needs: cleanup-runs
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -63,7 +63,7 @@ jobs:
 
   build:
     name: Build for ${{ matrix.target_name }}
-    needs: test
+    needs: cleanup-runs
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -108,7 +108,7 @@ jobs:
 
   release:
     name: Release
-    needs: build
+    needs: [clippy-json-output, test, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
