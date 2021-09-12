@@ -26,7 +26,8 @@ use std::convert::TryFrom;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const DEFAULT_CHANGE_TEMPLATE: &str = "- {{{ message }}} ([#{{ change_id }}]({{{ change_url }}}))";
+const DEFAULT_CHANGE_TEMPLATE: &str =
+    "{{{ bullet }}} {{{ message }}} ([#{{ change_id }}]({{{ change_url }}}))";
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
@@ -280,6 +281,7 @@ impl Changelog {
             "message": message,
             "change_url": github_project.change_url(platform_id)?.to_string(),
             "change_id": platform_id.id(),
+            "bullet": config.bullet_style.to_string(),
         });
         debug!(
             "Template parameters: {}",
