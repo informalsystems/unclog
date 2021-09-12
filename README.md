@@ -131,6 +131,13 @@ unclog add -i some-new-feature \
   -n 23 \
   -s breaking-changes \
   -m "Some *new* feature"
+
+# If your project uses components/sub-modules
+unclog add -i some-new-feature \
+  -n 23 \
+  -c submodule \
+  -s breaking-changes \
+  -m "Some *new* feature"
 ```
 
 To add an entry with your favourite `$EDITOR`:
@@ -190,6 +197,30 @@ unclog --help
 unclog release --version v0.2.0
 ```
 
+### Components/Submodules
+
+If your project has components or submodules to it (see the configuration below
+for details on how to specify components), referencing them when creating
+changelog entries allows you to group entries for one component together. For
+example:
+
+```bash
+unclog add -i some-new-feature \
+  -n 23 \
+  -c submodule \
+  -s breaking-changes \
+  -m "Some *new* feature"
+```
+
+would result in an entry being created in
+`.changelog/unreleased/submodule/breaking-changes/23-some-new-feature.md` which,
+when rendered, would look like:
+
+```markdown
+- [submodule](./submodule)
+  - Some *new* feature ([#23](https://github.com/org/project/issues/23))
+```
+
 ### Configuration
 
 Certain `unclog` settings can be overridden through the use of a configuration
@@ -205,14 +236,6 @@ the defaults will be assumed.
 # anyone wants GitLab support please let us know and we'll try implement it
 # too.
 project_url = "https://github.com/org/project"
-
-# What type of project is this?
-#
-# This is only necessary if you want to add component-specific changelog
-# entries. Otherwise just leave it out. At present we only support Rust
-# projects, but we may implement support for other project types by way of
-# demand.
-project_type = "rust"
 
 # The file to use as a Handlebars template for changes added directly through
 # the CLI.
@@ -274,6 +297,13 @@ general_entries_title = "General"
 
 # The number of spaces to inject before each component-related entry.
 entry_indent = 2
+
+    # The components themselves. Each component has a name (used when rendered
+    # to Markdown) and a path relative to the project folder (i.e. relative to
+    # the parent of the `.changelog` folder).
+    [components.all]
+    component1 = { name = "Component 1", path = "component1" }
+    docs = { name = "Documentation", path = "docs" }
 ```
 
 ### As a Library
