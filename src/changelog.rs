@@ -21,7 +21,7 @@ use crate::fs_utils::{
 };
 use crate::{ComponentLoader, Error, GitHubProject, PlatformId, Result};
 use config::Config;
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::convert::TryFrom;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -123,6 +123,47 @@ impl Changelog {
 
         info!("Success!");
         Ok(())
+    }
+
+    /// Attempts to generate a configuration file for the changelog in the given
+    /// path, inferring as many parameters as possible from its environment.
+    pub fn generate_config<P, Q, S>(config_path: P, path: Q, remote: S, force: bool) -> Result<()>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<Path>,
+        S: AsRef<str>,
+    {
+        let config_path = config_path.as_ref();
+        if fs_utils::file_exists(config_path) {
+            if !force {
+                return Err(Error::ConfigurationFileAlreadyExists(path_to_str(
+                    config_path,
+                )));
+            } else {
+                warn!(
+                    "Overwriting configuration file: {}",
+                    path_to_str(config_path)
+                );
+            }
+        }
+
+        let path = fs::canonicalize(path.as_ref())?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| Error::NoParentFolder(path_to_str(&path)))?;
+        let git_folder = parent.join(".git");
+        let maybe_github_project = if fs_utils::dir_exists(git_folder) {
+            Some(GitHubProject::from_git_repo(parent, remote.as_ref())?)
+        } else {
+            warn!("Parent folder of changelog directory is not a Git repository. Cannot infer whether it is a GitHub project.");
+            None
+        };
+
+        let config = Config {
+            maybe_project_url: maybe_github_project.map(|gp| gp.url()),
+            ..Config::default()
+        };
+        config.write_to_file(config_path)
     }
 
     /// Attempt to read a full changelog from the given directory.

@@ -55,6 +55,17 @@ enum Command {
         #[structopt(name = "epilogue", short, long)]
         maybe_epilogue_path: Option<PathBuf>,
     },
+    /// Automatically generate a configuration file, attempting to infer as many
+    /// parameters as possible from your project's environment.
+    GenerateConfig {
+        /// The Git remote from which to infer the project URL.
+        #[structopt(short, long, default_value = "origin")]
+        remote: String,
+
+        /// Overwrite any existing configuration file.
+        #[structopt(short, long)]
+        force: bool,
+    },
     /// Add a change to the unreleased set of changes.
     Add {
         /// The path to the editor to use to edit the details of the change.
@@ -139,12 +150,15 @@ fn main() {
     } else {
         opt.config_file
     };
-    let config = Config::read_from_file(config_path).unwrap();
+    let config = Config::read_from_file(&config_path).unwrap();
 
     let result = match opt.cmd {
         Command::Init {
             maybe_epilogue_path,
         } => Changelog::init_dir(&config, opt.path, maybe_epilogue_path),
+        Command::GenerateConfig { remote, force } => {
+            Changelog::generate_config(&config_path, opt.path, remote, force)
+        }
         Command::Build {
             unreleased,
             maybe_project_type,

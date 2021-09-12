@@ -68,4 +68,14 @@ pub enum Error {
     HandlebarsTemplateLoad(#[from] handlebars::TemplateError),
     #[error("error rendering Handlebars template: {0}")]
     HandlebarsTemplateRender(#[from] handlebars::RenderError),
+    #[error("git error: {0}")]
+    Git(#[from] git2::Error),
+    #[error("configuration file already exists: {0}")]
+    ConfigurationFileAlreadyExists(String),
+    #[error("no parent folder for path: {0}")]
+    NoParentFolder(String),
+    #[error("invalid URL in Git repository for remote \"{0}\": {1}")]
+    InvalidGitRemoteUrl(String, String),
+    #[error("invalid URL: {0}")]
+    InvalidUrl(String),
 }

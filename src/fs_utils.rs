@@ -79,6 +79,14 @@ pub fn file_exists<P: AsRef<Path>>(path: P) -> bool {
     false
 }
 
+pub fn dir_exists<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+    if let Ok(meta) = fs::metadata(&path) {
+        return meta.is_dir();
+    }
+    false
+}
+
 #[cfg(test)]
 mod test {
     use super::get_relative_path;

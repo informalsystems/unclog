@@ -1,8 +1,9 @@
 //! API for dealing with version control systems (Git) and VCS platforms (e.g.
 //! GitHub).
 
-use crate::Error;
-use std::{convert::TryFrom, str::FromStr};
+use crate::{fs_utils::path_to_str, Error, Result};
+use log::debug;
+use std::{convert::TryFrom, path::Path, str::FromStr};
 use url::Url;
 
 /// Provides a way of referencing a change through the VCS platform.
@@ -36,7 +37,7 @@ pub struct GitHubProject {
 impl TryFrom<&Url> for GitHubProject {
     type Error = Error;
 
-    fn try_from(url: &Url) -> Result<Self, Self::Error> {
+    fn try_from(url: &Url) -> Result<Self> {
         let host = url
             .host_str()
             .ok_or_else(|| Error::UrlMissingHost(url.to_string()))?;
@@ -56,7 +57,7 @@ impl TryFrom<&Url> for GitHubProject {
 
         Ok(Self {
             owner: path_parts[0].to_owned(),
-            project: path_parts[1].to_owned(),
+            project: path_parts[1].trim_end_matches(".git").to_owned(),
         })
     }
 }
@@ -64,7 +65,7 @@ impl TryFrom<&Url> for GitHubProject {
 impl FromStr for GitHubProject {
     type Err = Error;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         let url = Url::parse(s)?;
         Self::try_from(&url)
     }
@@ -72,12 +73,30 @@ impl FromStr for GitHubProject {
 
 impl std::fmt::Display for GitHubProject {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "https://github.com/{}/{}", self.owner, self.project)
+        write!(f, "{}", self.url_str())
     }
 }
 
 impl GitHubProject {
-    pub fn change_url(&self, platform_id: PlatformId) -> crate::Result<Url> {
+    /// Constructor that attempts to infer a GitHub project from a git
+    /// repository.
+    pub fn from_git_repo(path: &Path, remote: &str) -> Result<Self> {
+        debug!("Opening path as Git repository: {}", path_to_str(path));
+        let repo = git2::Repository::open(path)?;
+        let remote_url = repo
+            .find_remote(remote)?
+            .url()
+            .map(String::from)
+            .ok_or_else(|| Error::InvalidGitRemoteUrl(remote.to_owned(), path_to_str(path)))?;
+        debug!("Found Git remote \"{}\" URL: {}", remote, remote_url);
+        let remote_url = parse_url(&remote_url)?;
+        debug!("Parsed remote URL as: {}", remote_url.to_string());
+        Self::try_from(&remote_url)
+    }
+
+    /// Construct a URL for this project based on the given platform-specific
+    /// ID.
+    pub fn change_url(&self, platform_id: PlatformId) -> Result<Url> {
         Ok(Url::parse(&format!(
             "{}/{}",
             self.to_string(),
@@ -87,6 +106,23 @@ impl GitHubProject {
             }
         ))?)
     }
+
+    pub fn url_str(&self) -> String {
+        format!("https://github.com/{}/{}", self.owner, self.project)
+    }
+
+    pub fn url(&self) -> Url {
+        let url_str = self.url_str();
+        Url::parse(&url_str).expect(&format!("failed to parse URL: {}", url_str))
+    }
+}
+
+fn parse_url(u: &str) -> Result<Url> {
+    // Not an SSH URL
+    if u.starts_with("http://") || u.starts_with("https://") {
+        return Ok(Url::parse(u)?);
+    }
+    Ok(Url::parse(&format!("ssh://{}", u.replace(':', "/")))?)
 }
 
 #[cfg(test)]
@@ -99,6 +135,8 @@ mod test {
         const URLS: &[&str] = &[
             "https://github.com/informalsystems/unclog",
             "https://github.com/informalsystems/unclog/",
+            "https://github.com/informalsystems/unclog.git",
+            "ssh://git@github.com/informalsystems/unclog.git",
         ];
         let expected = GitHubProject {
             owner: "informalsystems".to_owned(),
