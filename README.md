@@ -190,7 +190,7 @@ unclog --help
 unclog release --version v0.2.0
 ```
 
-#### Configuration
+### Configuration
 
 Certain `unclog` settings can be overridden through the use of a configuration
 file in `.changelog/config.toml`. The following TOML shows all of the defaults
