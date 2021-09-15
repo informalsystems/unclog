@@ -44,8 +44,8 @@ impl ChangeSetSection {
             .into_iter()
             .map(|path| ComponentSection::read_from_dir(config, path))
             .collect::<Result<Vec<ComponentSection>>>()?;
-        // Component sections must be sorted by name
-        component_sections.sort_by(|a, b| a.name.cmp(&b.name));
+        // Component sections must be sorted by ID
+        component_sections.sort_by(|a, b| a.id.cmp(&b.id));
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
         let entries = read_entries_sorted(entry_files)?;
         Ok(Self {

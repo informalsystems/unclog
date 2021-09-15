@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 /// A section of entries related to a specific component/submodule/package.
 #[derive(Debug, Clone)]
 pub struct ComponentSection {
+    /// The ID of the component.
+    pub id: String,
     /// The name of the component.
     pub name: String,
     /// The path to the component, from the root of the project, if any.
@@ -32,22 +34,27 @@ impl ComponentSection {
         P: AsRef<Path>,
     {
         let path = path.as_ref();
-        let name = path
+        let id = path
             .file_name()
             .map(OsStr::to_str)
             .flatten()
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
-        debug!("Looking up component: {}", name);
-        let maybe_component = config.components.all.get(&name);
+        debug!("Looking up component with ID: {}", id);
+        let maybe_component = config.components.all.get(&id);
+        let name = maybe_component.map_or_else(|| id.clone(), |c| c.name.clone());
         let maybe_component_path = maybe_component.map(|c| &c.path).map(path_to_str);
         match &maybe_component_path {
-            Some(component_path) => debug!("Found component \"{}\" in: {}", name, component_path),
-            None => debug!("Could not find component \"{}\"", name),
+            Some(component_path) => debug!(
+                "Found component \"{}\" with name \"{}\" in: {}",
+                id, name, component_path
+            ),
+            None => debug!("Could not find component \"{}\"", id),
         }
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
         let entries = read_entries_sorted(entry_files)?;
         Ok(Self {
+            id,
             name,
             maybe_path: maybe_component_path,
             entries,
@@ -88,7 +95,7 @@ mod test {
     use super::{ComponentSection, Config};
     use crate::Entry;
 
-    const RENDERED_WITH_PATH: &str = r#"- [some-project](./some-project/)
+    const RENDERED_WITH_PATH: &str = r#"- [Some project](./some-project/)
   - Issue 1
   - Issue 2
   - Issue 3"#;
@@ -101,7 +108,8 @@ mod test {
     #[test]
     fn with_path() {
         let ps = ComponentSection {
-            name: "some-project".to_owned(),
+            id: "some-project".to_owned(),
+            name: "Some project".to_owned(),
             maybe_path: Some("./some-project/".to_owned()),
             entries: test_entries(),
         };
@@ -111,6 +119,7 @@ mod test {
     #[test]
     fn without_path() {
         let ps = ComponentSection {
+            id: "some-project".to_owned(),
             name: "some-project".to_owned(),
             maybe_path: None,
             entries: test_entries(),
