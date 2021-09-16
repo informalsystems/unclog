@@ -1,0 +1,146 @@
+name: Check, build, release
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  cleanup-runs:
+    name: Clean up runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: rokroskar/workflow-run-cleanup-action@master
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+    if: "!startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/master'"
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy-json-output:
+    name: Clippy check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          override: true
+      - uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy-results
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features --all-targets -- -Dwarnings -Drust-2018-idioms
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  build:
+    name: Build for ${{ matrix.target_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            target_name: Linux
+            os: ubuntu-latest
+            archive_cmd: |
+              tar cjvf unclog-linux-x86_64.tar.bz2 ./target/x86_64-unknown-linux-gnu/release/unclog
+            archive: unclog-linux-x86_64.tar.bz2
+          - target: x86_64-apple-darwin
+            target_name: macOS
+            os: macos-latest
+            archive_cmd: |
+              tar cjvf unclog-macos-x86_64.tar.bz2 ./target/x86_64-apple-darwin/release/unclog
+            archive: unclog-macos-x86_64.tar.bz2
+          - target: x86_64-pc-windows-gnu
+            target_name: Windows
+            os: windows-latest
+            archive_cmd: |
+              Compress-Archive -Path target\x86_64-pc-windows-gnu\release\unclog.exe -DestinationPath unclog-win-x86_64.zip
+            archive: unclog-win-x86_64.zip
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --bin unclog --release --all-features --target ${{ matrix.target }}
+      - name: Archive for platform
+        if: startsWith(github.ref, 'refs/tags/')
+        run: ${{ matrix.archive_cmd }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: ${{ matrix.target }}
+          path: ${{ matrix.archive }}
+
+  release:
+    name: Release
+    needs: [test, build]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v2
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - run: echo ${{ steps.get_version.outputs.VERSION }}
+      - name: Download Linux binary artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: x86_64-unknown-linux-gnu
+          path: ./artifacts/unclog-${{ steps.get_version.outputs.VERSION }}-linux-x86_64.tar.bz2
+      - name: Download macOS binary artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: x86_64-apple-darwin
+          path: ./artifacts/unclog-${{ steps.get_version.outputs.VERSION }}-darwin-x86_64.tar.bz2
+      - name: Download Windows binary artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: x86_64-pc-windows-gnu
+          path: ./artifacts/unclog-${{ steps.get_version.outputs.VERSION }}-win-x86_64.zip
+      - name: List artifacts 1
+        run: ls -lah ./artifacts/
+      - name: Compute SHA256 hashes of binary archives
+        run: |
+          sha256sum ./artifacts/* > ./artifacts/sha256sum.txt
+          cat ./release/sha256sum.txt
+      - name: List artifacts 2
+        run: ls -lah ./artifacts/
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: ./artifacts/*
