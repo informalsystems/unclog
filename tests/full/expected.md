@@ -16,7 +16,7 @@
 
 ### BREAKING CHANGES
 
-- [component2](2nd-component)
+- [Component 2](2nd-component)
   - Gargle the truffle
   - Travel the gravel
   - Laugh at the gaggle
@@ -29,7 +29,7 @@
 - component1
   - Fasten the handles
   - Hasten the sandals
-- [component2](2nd-component)
+- [Component 2](2nd-component)
   - Waggle the juggle
   - Drizzle the funnel
 
