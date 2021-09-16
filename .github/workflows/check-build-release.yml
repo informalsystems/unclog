@@ -46,6 +46,7 @@ jobs:
           args: --all-features --all-targets -- -Dwarnings -Drust-2018-idioms
 
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
