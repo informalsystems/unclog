@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v0.4.1
+
+Just one minor bug fix relating to component rendering.
+
+### BUG FIXES
+
+- Fixed component name rendering
+  ([#19](https://github.com/informalsystems/unclog/issues/19))
+
 ## v0.4.0
 
 This version is a pretty major breaking change from the previous one. Some of
