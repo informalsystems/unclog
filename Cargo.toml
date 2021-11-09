@@ -2,7 +2,7 @@
 name = "unclog"
 version = "0.4.1"
 authors = ["Thane Thomson <thane@informal.systems>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 homepage = "https://github.com/informalsystems/unclog"
 repository = "https://github.com/informalsystems/unclog"
