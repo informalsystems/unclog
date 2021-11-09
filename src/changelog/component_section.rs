@@ -2,7 +2,7 @@ use crate::changelog::change_set_section::indent_entries;
 use crate::changelog::entry::read_entries_sorted;
 use crate::changelog::fs_utils::{entry_filter, path_to_str, read_and_filter_dir};
 use crate::{Config, Entry, Error, Result};
-use log::debug;
+use log::{debug, warn};
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -41,15 +41,19 @@ impl ComponentSection {
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
         debug!("Looking up component with ID: {}", id);
-        let maybe_component = config.components.all.get(&id);
-        let name = maybe_component.map_or_else(|| id.clone(), |c| c.name.clone());
-        let maybe_component_path = maybe_component.map(|c| &c.path).map(path_to_str);
+        let component = config
+            .components
+            .all
+            .get(&id)
+            .ok_or_else(|| Error::ComponentNotDefined(id.clone()))?;
+        let name = component.name.clone();
+        let maybe_component_path = component.maybe_path.as_ref().map(path_to_str);
         match &maybe_component_path {
             Some(component_path) => debug!(
                 "Found component \"{}\" with name \"{}\" in: {}",
                 id, name, component_path
             ),
-            None => debug!("Could not find component \"{}\"", id),
+            None => warn!("No path for component \"{}\"", id),
         }
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
         let entries = read_entries_sorted(entry_files)?;

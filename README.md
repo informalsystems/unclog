@@ -202,10 +202,9 @@ unclog release --version v0.2.0
 
 ### Components/Submodules
 
-If your project has components or submodules to it (see the configuration below
-for details on how to specify components), referencing them when creating
-changelog entries allows you to group entries for one component together. For
-example:
+If your project has components or submodules to it, referencing them when
+creating changelog entries allows you to group entries for one component
+together. For example:
 
 ```bash
 unclog add -i some-new-feature \
@@ -223,6 +222,11 @@ when rendered, would look like:
 - [submodule](./submodule)
   - Some *new* feature ([#23](https://github.com/org/project/issues/23))
 ```
+
+NB: As of v0.5.0, you must first define your components in your configuration
+file (see below) prior to attempting to add an entry that references any of your
+components. Otherwise `unclog` will fail. This is to ensure that people don't
+add entries for incorrectly named or non-existent components.
 
 ### Configuration
 

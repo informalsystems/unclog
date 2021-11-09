@@ -23,6 +23,7 @@ fn init_logger() {
 fn full() {
     const CONFIG_FILE: &str = r#"
 [components.all]
+component1 = { name = "component1" }
 component2 = { name = "Component 2", path = "2nd-component" }
 "#;
 
