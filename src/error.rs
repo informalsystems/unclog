@@ -78,4 +78,6 @@ pub enum Error {
     InvalidGitRemoteUrl(String, String),
     #[error("invalid URL: {0}")]
     InvalidUrl(String),
+    #[error("component \"{0}\" is not defined in changelog config.toml file")]
+    ComponentNotDefined(String),
 }

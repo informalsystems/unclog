@@ -225,7 +225,11 @@ impl Changelog {
         ensure_dir(&section_path)?;
         let mut entry_dir = section_path;
         if let Some(component) = maybe_component {
-            entry_dir = entry_dir.join(component.as_ref());
+            let component = component.as_ref();
+            if !config.components.all.contains_key(component) {
+                return Err(Error::ComponentNotDefined(component.to_string()));
+            }
+            entry_dir = entry_dir.join(component);
             ensure_dir(&entry_dir)?;
         }
         let entry_path = entry_dir.join(entry_id_to_filename(config, id));

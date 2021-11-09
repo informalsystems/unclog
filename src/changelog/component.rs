@@ -8,6 +8,7 @@ use std::path::PathBuf;
 pub struct Component {
     /// The name of the component.
     pub name: String,
-    /// The path of the component relative to the project path.
-    pub path: PathBuf,
+    /// Optional path of the component relative to the project path.
+    #[serde(rename = "path")]
+    pub maybe_path: Option<PathBuf>,
 }
