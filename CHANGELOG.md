@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## v0.5.0
+
+*23 June 2022*
+
+This release includes a minor footgun guardrail and some minor improvements to
+the way I/O errors are reported.
+
+### BREAKING CHANGES
+
+- It is now required to add components to your `config.toml`
+  file prior to creating entries referencing those components
+  ([#23](https://github.com/informalsystems/unclog/issues/23))
+
 ## v0.4.1
 
 Just one minor bug fix relating to component rendering.
