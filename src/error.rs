@@ -6,8 +6,10 @@ use thiserror::Error;
 /// All error variants that can be produced by unclog.
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("I/O error relating to {0}: {1}")]
+    Io(PathBuf, std::io::Error),
+    #[error("failed to execute subprocess {0}: {1}")]
+    Subprocess(String, std::io::Error),
     #[error("expected path to be a directory: {0}")]
     ExpectedDir(String),
     #[error("unexpected release directory name prefix: \"{0}\"")]

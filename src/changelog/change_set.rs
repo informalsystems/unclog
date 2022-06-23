@@ -76,13 +76,13 @@ impl ChangeSet {
     }
 }
 
-fn change_set_section_filter(e: fs::DirEntry) -> Option<Result<PathBuf>> {
-    let meta = match e.metadata() {
+fn change_set_section_filter(entry: fs::DirEntry) -> Option<Result<PathBuf>> {
+    let meta = match entry.metadata() {
         Ok(m) => m,
-        Err(e) => return Some(Err(Error::Io(e))),
+        Err(e) => return Some(Err(Error::Io(entry.path(), e))),
     };
     if meta.is_dir() {
-        Some(Ok(e.path()))
+        Some(Ok(entry.path()))
     } else {
         None
     }
