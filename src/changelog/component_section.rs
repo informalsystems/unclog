@@ -36,8 +36,7 @@ impl ComponentSection {
         let path = path.as_ref();
         let id = path
             .file_name()
-            .map(OsStr::to_str)
-            .flatten()
+            .and_then(OsStr::to_str)
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
         debug!("Looking up component with ID: {}", id);
@@ -76,7 +75,7 @@ impl ComponentSection {
             Some(path) => format!("[{}]({})", self.name, path),
             None => self.name.clone(),
         };
-        let mut lines = vec![format!("{} {}", config.bullet_style.to_string(), name)];
+        let mut lines = vec![format!("{} {}", config.bullet_style, name)];
         lines.extend(entries_lines);
         lines.join("\n")
     }

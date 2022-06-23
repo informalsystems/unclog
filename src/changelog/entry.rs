@@ -25,8 +25,7 @@ impl Entry {
         Ok(Self {
             id: extract_entry_id(
                 path.file_name()
-                    .map(OsStr::to_str)
-                    .flatten()
+                    .and_then(OsStr::to_str)
                     .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?,
             )?,
             details: trim_newlines(&read_to_string(path)?).to_owned(),
