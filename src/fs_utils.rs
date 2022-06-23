@@ -10,7 +10,8 @@ pub fn path_to_str<P: AsRef<Path>>(path: P) -> String {
 }
 
 pub fn read_to_string<P: AsRef<Path>>(path: P) -> Result<String> {
-    Ok(fs::read_to_string(path)?)
+    let path = path.as_ref();
+    fs::read_to_string(path).map_err(|e| Error::Io(path.to_path_buf(), e))
 }
 
 pub fn read_to_string_opt<P: AsRef<Path>>(path: P) -> Result<Option<String>> {
@@ -23,10 +24,11 @@ pub fn read_to_string_opt<P: AsRef<Path>>(path: P) -> Result<Option<String>> {
 
 pub fn ensure_dir(path: &Path) -> Result<()> {
     if fs::metadata(path).is_err() {
-        fs::create_dir(path)?;
+        fs::create_dir(path).map_err(|e| Error::Io(path.to_path_buf(), e))?;
         info!("Created directory: {}", path_to_str(path));
     }
-    if !fs::metadata(path)?.is_dir() {
+    let meta = fs::metadata(path).map_err(|e| Error::Io(path.to_path_buf(), e))?;
+    if !meta.is_dir() {
         return Err(Error::ExpectedDir(path_to_str(path)));
     }
     Ok(())
@@ -35,7 +37,7 @@ pub fn ensure_dir(path: &Path) -> Result<()> {
 pub fn rm_gitkeep(path: &Path) -> Result<()> {
     let path = path.join(".gitkeep");
     if fs::metadata(&path).is_ok() {
-        fs::remove_file(&path)?;
+        fs::remove_file(&path).map_err(|e| Error::Io(path.to_path_buf(), e))?;
         debug!("Removed .gitkeep file from: {}", path_to_str(&path));
     }
     Ok(())
@@ -45,20 +47,21 @@ pub fn read_and_filter_dir<F>(path: &Path, filter: F) -> Result<Vec<PathBuf>>
 where
     F: Fn(fs::DirEntry) -> Option<Result<PathBuf>>,
 {
-    fs::read_dir(path)?
+    fs::read_dir(path)
+        .map_err(|e| Error::Io(path.to_path_buf(), e))?
         .filter_map(|r| match r {
             Ok(e) => filter(e),
-            Err(e) => Some(Err(Error::Io(e))),
+            Err(e) => Some(Err(Error::Io(path.to_path_buf(), e))),
         })
         .collect::<Result<Vec<PathBuf>>>()
 }
 
-pub fn entry_filter(config: &Config, e: fs::DirEntry) -> Option<Result<PathBuf>> {
-    let meta = match e.metadata() {
+pub fn entry_filter(config: &Config, entry: fs::DirEntry) -> Option<Result<PathBuf>> {
+    let meta = match entry.metadata() {
         Ok(m) => m,
-        Err(e) => return Some(Err(Error::Io(e))),
+        Err(e) => return Some(Err(Error::Io(entry.path(), e))),
     };
-    let path = e.path();
+    let path = entry.path();
     let ext = path.extension()?.to_str()?;
     if meta.is_file() && ext == config.change_sets.entry_ext {
         Some(Ok(path))

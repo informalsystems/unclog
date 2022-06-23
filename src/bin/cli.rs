@@ -275,17 +275,21 @@ fn add_unreleased_entry_with_editor(
         return Err(Error::FileExists(entry_path.display().to_string()));
     }
 
-    let tmpdir = tempfile::tempdir()?;
+    let tmpdir =
+        tempfile::tempdir().map_err(|e| Error::Io(Path::new("tempdir").to_path_buf(), e))?;
     let tmpfile_path = tmpdir.path().join("entry.md");
-    std::fs::write(&tmpfile_path, ADD_CHANGE_TEMPLATE)?;
+    std::fs::write(&tmpfile_path, ADD_CHANGE_TEMPLATE)
+        .map_err(|e| Error::Io(tmpfile_path.clone(), e))?;
 
     // Run the user's editor and wait for the process to exit
     let _ = std::process::Command::new(editor)
         .arg(&tmpfile_path)
-        .status()?;
+        .status()
+        .map_err(|e| Error::Subprocess(editor.to_str().unwrap().to_string(), e))?;
 
     // Check if the temporary file's content's changed, and that it's not empty
-    let tmpfile_content = std::fs::read_to_string(&tmpfile_path)?;
+    let tmpfile_content = std::fs::read_to_string(&tmpfile_path)
+        .map_err(|e| Error::Io(tmpfile_path.to_path_buf(), e))?;
     if tmpfile_content.is_empty() || tmpfile_content == ADD_CHANGE_TEMPLATE {
         log::info!("No changes to entry - not adding new entry to changelog");
         return Ok(());
@@ -302,17 +306,20 @@ fn prepare_release(config: &Config, editor: &Path, path: &Path, version: &str) -
         .join(&config.change_sets.summary_filename);
     // If the summary doesn't exist, try to create it
     if std::fs::metadata(&summary_path).is_err() {
-        std::fs::write(&summary_path, RELEASE_SUMMARY_TEMPLATE)?;
+        std::fs::write(&summary_path, RELEASE_SUMMARY_TEMPLATE)
+            .map_err(|e| Error::Io(summary_path.clone(), e))?;
     }
 
     // Run the user's editor and wait for the process to exit
     let _ = std::process::Command::new(editor)
         .arg(&summary_path)
-        .status()?;
+        .status()
+        .map_err(|e| Error::Subprocess(editor.to_str().unwrap().to_string(), e))?;
 
     // Check if the file's contents have changed - if not, don't continue with
     // the release
-    let summary_content = std::fs::read_to_string(&summary_path)?;
+    let summary_content =
+        std::fs::read_to_string(&summary_path).map_err(|e| Error::Io(summary_path.clone(), e))?;
     if summary_content.is_empty() || summary_content == RELEASE_SUMMARY_TEMPLATE {
         log::info!("No changes to release summary - not creating a new release");
         return Ok(());

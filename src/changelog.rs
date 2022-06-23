@@ -107,7 +107,8 @@ impl Changelog {
         if let Some(ep) = maybe_epilogue_path {
             let new_epilogue_path = path.join(&config.epilogue_filename);
             if !fs_utils::file_exists(&new_epilogue_path) {
-                fs::copy(ep, &new_epilogue_path)?;
+                fs::copy(ep, &new_epilogue_path)
+                    .map_err(|e| Error::Io(ep.as_ref().to_path_buf(), e))?;
                 info!(
                     "Copied epilogue from {} to {}",
                     path_to_str(ep),
@@ -149,7 +150,8 @@ impl Changelog {
             }
         }
 
-        let path = fs::canonicalize(path.as_ref())?;
+        let path = fs::canonicalize(path.as_ref())
+            .map_err(|e| Error::Io(path.as_ref().to_path_buf(), e))?;
         let parent = path
             .parent()
             .ok_or_else(|| Error::NoParentFolder(path_to_str(&path)))?;
@@ -178,7 +180,8 @@ impl Changelog {
             "Attempting to load changelog from directory: {}",
             path.display()
         );
-        if !fs::metadata(path)?.is_dir() {
+        let meta = fs::metadata(path).map_err(|e| Error::Io(path.to_path_buf(), e))?;
+        if !meta.is_dir() {
             return Err(Error::ExpectedDir(fs_utils::path_to_str(path)));
         }
         let unreleased =
@@ -237,7 +240,7 @@ impl Changelog {
         if fs::metadata(&entry_path).is_ok() {
             return Err(Error::FileExists(path_to_str(&entry_path)));
         }
-        fs::write(&entry_path, content.as_ref())?;
+        fs::write(&entry_path, content.as_ref()).map_err(|e| Error::Io(entry_path.clone(), e))?;
         info!("Wrote entry to: {}", path_to_str(&entry_path));
         Ok(())
     }
@@ -391,7 +394,8 @@ impl Changelog {
             return Err(Error::ExpectedDir(path_to_str(&unreleased_path)));
         }
 
-        fs::rename(&unreleased_path, &version_path)?;
+        fs::rename(&unreleased_path, &version_path)
+            .map_err(|e| Error::Io(unreleased_path.clone(), e))?;
         info!(
             "Moved {} to {}",
             path_to_str(&unreleased_path),
@@ -407,7 +411,7 @@ impl Changelog {
         let unreleased_dir = path.join(&config.unreleased.folder);
         ensure_dir(&unreleased_dir)?;
         let unreleased_gitkeep = unreleased_dir.join(".gitkeep");
-        fs::write(&unreleased_gitkeep, "")?;
+        fs::write(&unreleased_gitkeep, "").map_err(|e| Error::Io(unreleased_gitkeep.clone(), e))?;
         debug!("Wrote {}", path_to_str(&unreleased_gitkeep));
         Ok(())
     }
@@ -417,15 +421,15 @@ fn entry_id_to_filename<S: AsRef<str>>(config: &Config, id: S) -> String {
     format!("{}.{}", id.as_ref(), config.change_sets.entry_ext)
 }
 
-fn release_dir_filter(config: &Config, e: fs::DirEntry) -> Option<crate::Result<PathBuf>> {
-    let file_name = e.file_name();
+fn release_dir_filter(config: &Config, entry: fs::DirEntry) -> Option<crate::Result<PathBuf>> {
+    let file_name = entry.file_name();
     let file_name = file_name.to_string_lossy();
-    let meta = match e.metadata() {
+    let meta = match entry.metadata() {
         Ok(m) => m,
-        Err(e) => return Some(Err(Error::Io(e))),
+        Err(e) => return Some(Err(Error::Io(entry.path(), e))),
     };
     if meta.is_dir() && file_name != config.unreleased.folder {
-        Some(Ok(e.path()))
+        Some(Ok(entry.path()))
     } else {
         None
     }

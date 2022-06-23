@@ -123,7 +123,7 @@ impl Config {
             path.display()
         );
         let content = toml::to_string_pretty(&self).map_err(Error::TomlSerialize)?;
-        std::fs::write(path, content)?;
+        std::fs::write(path, content).map_err(|e| Error::Io(path.to_path_buf(), e))?;
         info!("Saved configuration to: {}", path.display());
         Ok(())
     }
