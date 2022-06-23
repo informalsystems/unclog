@@ -34,8 +34,7 @@ impl ChangeSetSection {
         debug!("Loading section {}", path.display());
         let id = path
             .file_name()
-            .map(OsStr::to_str)
-            .flatten()
+            .and_then(OsStr::to_str)
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
         let title = change_set_section_title(id);
@@ -76,8 +75,7 @@ impl ChangeSetSection {
                 // - General
                 lines.push(format!(
                     "{} {}",
-                    config.bullet_style.to_string(),
-                    config.components.general_entries_title
+                    config.bullet_style, config.components.general_entries_title
                 ));
                 // Now we indent all general entries.
                 lines.extend(indent_entries(
@@ -125,8 +123,7 @@ fn indent_bulleted_str(s: &str, indent: u8, overflow_indent: u8) -> Vec<String> 
 pub(crate) fn indent_entries(entries: &[Entry], indent: u8, overflow_indent: u8) -> Vec<String> {
     entries
         .iter()
-        .map(|e| indent_bulleted_str(e.to_string().as_str(), indent, overflow_indent))
-        .flatten()
+        .flat_map(|e| indent_bulleted_str(e.to_string().as_str(), indent, overflow_indent))
         .collect::<Vec<String>>()
 }
 
