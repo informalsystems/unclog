@@ -41,11 +41,7 @@ cargo install unclog
 Or you can build from source:
 
 ```bash
-git clone https://github.com/informalsystems/unclog
-cd unclog
-
-# Install to ~/.cargo/bin/
-cargo install --path .
+cargo install --git https://github.com/informalsystems/unclog.git
 ```
 
 ## Usage
