@@ -13,7 +13,7 @@ pub use changelog::{
     ChangeSet, ChangeSetSection, Changelog, Component, ComponentSection, Entry, Release,
 };
 pub use error::Error;
-pub use vcs::{GitHubProject, PlatformId};
+pub use vcs::{GenericProject, PlatformId, Project};
 
 /// Result type used throughout the `unclog` crate.
 pub type Result<T> = std::result::Result<T, Error>;

@@ -21,10 +21,10 @@ use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
 use crate::fs_utils::{
     self, ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
 };
-use crate::{Error, GitHubProject, PlatformId, Result};
+use crate::vcs::{from_git_repo, try_from, GenericProject};
+use crate::{Error, PlatformId, Result};
 use config::Config;
 use log::{debug, info, warn};
-use std::convert::TryFrom;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -156,15 +156,16 @@ impl Changelog {
             .parent()
             .ok_or_else(|| Error::NoParentFolder(path_to_str(&path)))?;
         let git_folder = parent.join(".git");
-        let maybe_github_project = if fs_utils::dir_exists(git_folder) {
-            Some(GitHubProject::from_git_repo(parent, remote.as_ref())?)
+
+        let maybe_git_project = if fs_utils::dir_exists(git_folder) {
+            Some(from_git_repo(parent, remote.as_ref())?)
         } else {
             warn!("Parent folder of changelog directory is not a Git repository. Cannot infer whether it is a GitHub project.");
             None
         };
 
         let config = Config {
-            maybe_project_url: maybe_github_project.map(|gp| gp.url()),
+            maybe_project_url: maybe_git_project.map(|gp| gp.url()),
             ..Config::default()
         };
         config.write_to_file(config_path)
@@ -298,8 +299,8 @@ impl Changelog {
             .maybe_project_url
             .as_ref()
             .ok_or(Error::MissingProjectUrl)?;
-        // We only support GitHub projects at the moment
-        let github_project = GitHubProject::try_from(project_url)?;
+        // We only support GitHub and GitLab projects at the moment
+        let git_project = try_from(project_url)?;
         let mut change_template_file = PathBuf::from(&config.change_template);
         if change_template_file.is_relative() {
             change_template_file = path.join(change_template_file);
@@ -320,13 +321,13 @@ impl Changelog {
             PlatformId::PullRequest(pull_request) => ("pull_request", pull_request),
         };
         let template_params = json!({
-            "project_url": github_project.to_string(),
+            "project_url": git_project.to_string(),
             "section": section,
             "component": component,
             "id": id,
             platform_id_field: platform_id_val,
             "message": message,
-            "change_url": github_project.change_url(platform_id)?.to_string(),
+            "change_url": git_project.change_url(platform_id)?.to_string(),
             "change_id": platform_id.id(),
             "bullet": config.bullet_style.to_string(),
         });
