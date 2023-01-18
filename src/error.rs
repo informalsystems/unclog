@@ -67,9 +67,9 @@ pub enum Error {
     #[error("configuration is missing a project URL (needed for automatic entry generation)")]
     MissingProjectUrl,
     #[error("error loading Handlebars template: {0}")]
-    HandlebarsTemplateLoad(#[from] handlebars::TemplateError),
+    HandlebarsTemplateLoad(String),
     #[error("error rendering Handlebars template: {0}")]
-    HandlebarsTemplateRender(#[from] handlebars::RenderError),
+    HandlebarsTemplateRender(String),
     #[error("git error: {0}")]
     Git(#[from] git2::Error),
     #[error("configuration file already exists: {0}")]

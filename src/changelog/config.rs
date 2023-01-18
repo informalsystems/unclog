@@ -106,8 +106,9 @@ impl Config {
         );
         let maybe_content = read_to_string_opt(path)?;
         match maybe_content {
-            Some(content) => toml::from_str::<Self>(&content)
-                .map_err(|e| Error::TomlParse(path_to_str(&path), e)),
+            Some(content) => {
+                toml::from_str::<Self>(&content).map_err(|e| Error::TomlParse(path_to_str(path), e))
+            }
             None => {
                 info!("No changelog configuration file. Assuming defaults.");
                 Ok(Self::default())

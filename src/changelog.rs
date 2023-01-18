@@ -275,7 +275,7 @@ impl Changelog {
             id = format!("{}-{}", platform_id.id(), id);
             debug!("Automatically prepending platform ID to change ID: {}", id);
         }
-        Self::add_unreleased_entry(config, path, section, component, &id, &rendered_change)
+        Self::add_unreleased_entry(config, path, section, component, &id, rendered_change)
     }
 
     /// Renders an unreleased changelog entry from the given parameters to a
@@ -312,7 +312,8 @@ impl Changelog {
             .unwrap_or_else(|| DEFAULT_CHANGE_TEMPLATE.to_owned());
         debug!("Loaded change template:\n{}", change_template);
         let mut hb = handlebars::Handlebars::new();
-        hb.register_template_string("change", change_template)?;
+        hb.register_template_string("change", change_template)
+            .map_err(|e| Error::HandlebarsTemplateLoad(e.to_string()))?;
 
         let (platform_id_field, platform_id_val) = match platform_id {
             PlatformId::Issue(issue) => ("issue", issue),
@@ -333,7 +334,9 @@ impl Changelog {
             "Template parameters: {}",
             serde_json::to_string_pretty(&template_params)?
         );
-        let rendered_change = hb.render("change", &template_params)?;
+        let rendered_change = hb
+            .render("change", &template_params)
+            .map_err(|e| Error::HandlebarsTemplateRender(e.to_string()))?;
         let wrapped_rendered = textwrap::wrap(
             &rendered_change,
             textwrap::Options::new(config.wrap as usize)
