@@ -29,7 +29,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const DEFAULT_CHANGE_TEMPLATE: &str =
-    "{{{ bullet }}} {{{ message }}} ([#{{ change_id }}]({{{ change_url }}}))";
+    "{{{ bullet }}} {{{ message }}} ([\\#{{ change_id }}]({{{ change_url }}}))";
 
 /// A log of changes for a specific project.
 #[derive(Debug, Clone)]
