@@ -1,16 +1,5 @@
 # CHANGELOG
 
-## v0.5.2
-
-*27 January 2023*
-
-@romac kindly expanded on our release build job to cater for more targets.
-
-### IMPROVEMENTS
-
-- Build releases for aarch64 on macOS and Linux
-  ([\#44](https://github.com/informalsystems/unclog/pull/44))
-
 ## v0.5.1
 
 *27 January 2023*
