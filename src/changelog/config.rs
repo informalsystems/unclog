@@ -222,7 +222,7 @@ impl<'de> Deserialize<'de> for BulletStyle {
     {
         String::deserialize(deserializer)?
             .parse::<Self>()
-            .map_err(|e| D::Error::custom(format!("{}", e)))
+            .map_err(|e| D::Error::custom(format!("{e}")))
     }
 }
 

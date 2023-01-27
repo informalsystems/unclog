@@ -21,5 +21,5 @@ where
 {
     String::deserialize(deserializer)?
         .parse::<T>()
-        .map_err(|e| D::Error::custom(format!("{}", e)))
+        .map_err(|e| D::Error::custom(format!("{e}")))
 }
