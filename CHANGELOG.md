@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## v0.5.1
+
+*27 January 2023*
+
+A minor bug fix release with a small improvement to the way new entries are
+added from the CLI.
+
+### BUG FIXES
+
+- Escape \# in issue or PR number.
+  ([\#38](https://github.com/informalsystems/unclog/issues/38))
+
 ## v0.5.0
 
 *23 June 2022*
