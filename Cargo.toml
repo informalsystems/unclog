@@ -10,10 +10,9 @@ readme = "README.md"
 categories = ["development-tools"]
 keywords = ["changelog", "markdown"]
 description = """
-    unclog allows you to build your changelog from a collection of independent
-    files. This helps prevent annoying and unnecessary merge conflicts when
-    collaborating on shared codebases.
-    """
+unclog allows you to build your changelog from a collection of independent
+files. This helps prevent annoying and unnecessary merge conflicts when
+collaborating on shared codebases."""
 
 [[bin]]
 name = "unclog"
