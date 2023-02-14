@@ -56,7 +56,7 @@ pub struct Config {
     )]
     pub empty_msg: String,
     /// The filename (relative to the `.changelog` folder) of the file
-    /// containing content to be appended to the beginning of the generated
+    /// containing content to be inserted at the beginning of the generated
     /// changelog.
     #[serde(
         default = "Config::default_prologue_filename",
