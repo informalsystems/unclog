@@ -1,5 +1,7 @@
 # CHANGELOG
 
+This goes at the BEGINNING of the changelog.
+
 ## Unreleased
 
 ### FEATURES

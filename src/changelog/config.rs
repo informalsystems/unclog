@@ -56,6 +56,14 @@ pub struct Config {
     )]
     pub empty_msg: String,
     /// The filename (relative to the `.changelog` folder) of the file
+    /// containing content to be inserted at the beginning of the generated
+    /// changelog.
+    #[serde(
+        default = "Config::default_prologue_filename",
+        skip_serializing_if = "Config::is_default_prologue_filename"
+    )]
+    pub prologue_filename: String,
+    /// The filename (relative to the `.changelog` folder) of the file
     /// containing content to be appended to the end of the generated
     /// changelog.
     #[serde(
@@ -83,6 +91,7 @@ impl Default for Config {
             heading: Self::default_heading(),
             bullet_style: BulletStyle::default(),
             empty_msg: Self::default_empty_msg(),
+            prologue_filename: Self::default_prologue_filename(),
             epilogue_filename: Self::default_epilogue_filename(),
             unreleased: UnreleasedConfig::default(),
             change_sets: ChangeSetsConfig::default(),
@@ -159,6 +168,14 @@ impl Config {
 
     fn is_default_empty_msg(empty_msg: &str) -> bool {
         empty_msg == Self::default_empty_msg()
+    }
+
+    fn default_prologue_filename() -> String {
+        "prologue.md".to_owned()
+    }
+
+    fn is_default_prologue_filename(prologue_filename: &str) -> bool {
+        prologue_filename == Self::default_prologue_filename()
     }
 
     fn default_epilogue_filename() -> String {

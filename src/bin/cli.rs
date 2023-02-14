@@ -52,6 +52,10 @@ struct Opt {
 enum Command {
     /// Create and initialize a fresh .changelog folder.
     Init {
+        /// The path to a prologue to optionally prepend to the changelog.
+        #[arg(name = "prologue", short, long)]
+        maybe_prologue_path: Option<PathBuf>,
+
         /// The path to an epilogue to optionally append to the new changelog.
         #[arg(name = "epilogue", short, long)]
         maybe_epilogue_path: Option<PathBuf>,
@@ -160,6 +164,7 @@ fn main() {
 
     let result = match opt.cmd {
         Command::Init {
+            maybe_prologue_path,
             maybe_epilogue_path,
             gen_config,
             remote,
@@ -167,6 +172,7 @@ fn main() {
             &config,
             &opt.path,
             &config_path,
+            maybe_prologue_path,
             maybe_epilogue_path,
             gen_config,
             &remote,
@@ -233,11 +239,12 @@ fn init_changelog(
     config: &Config,
     path: &Path,
     config_path: &Path,
+    maybe_prologue_path: Option<PathBuf>,
     maybe_epilogue_path: Option<PathBuf>,
     gen_config: bool,
     remote: &str,
 ) -> Result<()> {
-    Changelog::init_dir(config, path, maybe_epilogue_path)?;
+    Changelog::init_dir(config, path, maybe_prologue_path, maybe_epilogue_path)?;
     if gen_config {
         Changelog::generate_config(config_path, path, remote, true)
     } else {
