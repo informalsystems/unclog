@@ -342,7 +342,7 @@ impl Changelog {
             textwrap::Options::new(config.wrap as usize)
                 .subsequent_indent("  ")
                 .break_words(false)
-                .word_separator(textwrap::word_separators::AsciiSpace),
+                .word_separator(textwrap::WordSeparator::AsciiSpace),
         )
         .join("\n");
         debug!("Rendered wrapped change:\n{}", wrapped_rendered);

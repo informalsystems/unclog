@@ -1,9 +1,9 @@
 //! `unclog` helps you build your changelog.
 
+use clap::{Parser, Subcommand};
 use log::error;
 use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::path::{Path, PathBuf};
-use structopt::StructOpt;
 use unclog::{Changelog, Config, Error, PlatformId, Result};
 
 const RELEASE_SUMMARY_TEMPLATE: &str = r#"<!--
@@ -23,119 +23,120 @@ const ADD_CHANGE_TEMPLATE: &str = r#"<!--
 const DEFAULT_CHANGELOG_DIR: &str = ".changelog";
 const DEFAULT_CONFIG_FILENAME: &str = "config.toml";
 
-#[derive(StructOpt)]
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
 struct Opt {
     /// The path to the changelog folder.
-    #[structopt(short, long, default_value = DEFAULT_CHANGELOG_DIR)]
+    #[arg(short, long, default_value = DEFAULT_CHANGELOG_DIR)]
     path: PathBuf,
 
     /// The path to the changelog configuration file. If a relative path is
     /// provided, it is assumed this is relative to the `path` parameter. If no
     /// configuration file exists, defaults will be used for all parameters.
-    #[structopt(short, long, default_value = DEFAULT_CONFIG_FILENAME)]
+    #[arg(short, long, default_value = DEFAULT_CONFIG_FILENAME)]
     config_file: PathBuf,
 
     /// Increase output logging verbosity to DEBUG level.
-    #[structopt(short, long)]
+    #[arg(short, long)]
     verbose: bool,
 
     /// Suppress all output logging (overrides `--verbose`).
-    #[structopt(short, long)]
+    #[arg(short, long)]
     quiet: bool,
 
-    #[structopt(subcommand)]
+    #[command(subcommand)]
     cmd: Command,
 }
 
-#[derive(StructOpt)]
+#[derive(Subcommand)]
 enum Command {
     /// Create and initialize a fresh .changelog folder.
     Init {
         /// The path to an epilogue to optionally append to the new changelog.
-        #[structopt(name = "epilogue", short, long)]
+        #[arg(name = "epilogue", short, long)]
         maybe_epilogue_path: Option<PathBuf>,
 
         /// Automatically generate a `config.toml` file for your changelog,
         /// inferring parameters from your environment. This is the same as
         /// running `unclog generate-config` after `unclog init`.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         gen_config: bool,
 
         /// If automatically generating configuration, the Git remote from which
         /// to infer the project URL.
-        #[structopt(short, long, default_value = "origin")]
+        #[arg(short, long, default_value = "origin")]
         remote: String,
     },
     /// Automatically generate a configuration file, attempting to infer as many
     /// parameters as possible from your project's environment.
     GenerateConfig {
         /// The Git remote from which to infer the project URL.
-        #[structopt(short, long, default_value = "origin")]
+        #[arg(short, long, default_value = "origin")]
         remote: String,
 
         /// Overwrite any existing configuration file.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         force: bool,
     },
     /// Add a change to the unreleased set of changes.
     Add {
         /// The path to the editor to use to edit the details of the change.
-        #[structopt(long, env = "EDITOR")]
+        #[arg(long, env = "EDITOR")]
         editor: PathBuf,
 
         /// The component to which this entry should be added.
-        #[structopt(name = "component", short, long)]
+        #[arg(name = "component", short, long)]
         maybe_component: Option<String>,
 
         /// The ID of the section to which the change must be added (e.g.
         /// "breaking-changes").
-        #[structopt(short, long)]
+        #[arg(short, long)]
         section: String,
 
         /// The ID of the change to add, which should include the number of the
         /// issue or PR to which the change applies (e.g. "820-change-api").
-        #[structopt(short, long)]
+        #[arg(short, long)]
         id: String,
 
         /// The issue number associated with this change, if any. Only relevant
         /// if the `--message` flag is also provided. Only one of the
         /// `--issue-no` or `--pull-request` flags can be specified at a time.
-        #[structopt(name = "issue_no", short = "n", long = "issue-no")]
+        #[arg(name = "issue_no", short = 'n', long = "issue-no")]
         maybe_issue_no: Option<u32>,
 
         /// The number of the pull request associated with this change, if any.
         /// Only relevant if the `--message` flag is also provided. Only one of
         /// the `--issue-no` or `--pull-request` flags can be specified at a
         /// time.
-        #[structopt(name = "pull_request", short, long = "pull-request")]
+        #[arg(name = "pull_request", short, long = "pull-request")]
         maybe_pull_request: Option<u32>,
 
         /// If specified, the change will automatically be generated from the
         /// default change template. Requires a project URL to be specified in
         /// the changelog configuration file.
-        #[structopt(name = "message", short, long)]
+        #[arg(name = "message", short, long)]
         maybe_message: Option<String>,
     },
     /// Build the changelog from the input path and write the output to stdout.
     Build {
         /// Only render unreleased changes.
-        #[structopt(short, long)]
+        #[arg(short, long)]
         unreleased: bool,
     },
     /// Release any unreleased features.
     Release {
         /// The path to the editor to use to edit the release summary.
-        #[structopt(long, env = "EDITOR")]
+        #[arg(long, env = "EDITOR")]
         editor: PathBuf,
 
         /// The version string to use for the new release (e.g. "v0.1.0").
-        #[structopt(long)]
+        #[arg(long)]
         version: String,
     },
 }
 
 fn main() {
-    let opt: Opt = Opt::from_args();
+    let opt: Opt = Opt::parse();
     TermLogger::init(
         if opt.quiet {
             LevelFilter::Off
