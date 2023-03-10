@@ -26,10 +26,10 @@ being able to tailor content to each audience: Git commit histories for our
 
 ## Requirements
 
-- Rust v1.67+ with `cargo`
+- Tested using Rust v1.68+ with `cargo`
 - Git
-- Your project is hosted on GitHub (for automatic changelog entry generation
-  from the CLI)
+- Your project is hosted on GitHub or GitLab (for automatic changelog entry
+  generation from the CLI)
 
 ## Installation
 
@@ -170,11 +170,17 @@ resolved. If there's no issue, then reference the PR.
 
 ```bash
 # Run from your project's directory to build your '.changelog' folder.
-# Builds your CHANGELOG.md and writes it to stdout.
+# Builds your CHANGELOG.md and writes it to stdout. Does not build any
+# unreleased entries.
 unclog build
 
 # Only render unreleased changes (returns an error if none)
-unclog build --unreleased
+unclog build --unreleased-only
+unclog build -u
+
+# Build all entries, both released and unreleased.
+unclog build --all
+unclog build -a
 
 # Save the output as your new CHANGELOG.md file.
 # NOTE: All logging output goes to stderr.
@@ -316,12 +322,12 @@ as a library instead without the CLI:
 
 ```toml
 [dependencies]
-unclog = { version = "0.4", default-features = false }
+unclog = { version = "0.6", default-features = false }
 ```
 
 ## License
 
-Copyright © 2021 Informal Systems
+Copyright &copy; 2021- Informal Systems and contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use the files in this repository except in compliance with the License.
