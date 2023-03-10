@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## v0.6.0
+
+*Mar 10, 2023*
+
+This release introduces a few CLI-breaking changes in order to improve user
+experience, so please review those breaking changes below carefully. In terms of
+non-breaking changes, unclog v0.6.0 now supports the insertion of an arbitrary
+prologue at the beginning of the changelog, in case you want some form of
+preamble to your changelog.
+
+Internally, the `structopt` package has been replaced by the latest version of
+`clap` to build unclog's CLI, since it appears to have a better support
+trajectory.
+
+Also, special thanks to @thaligar for adding support for GitLab projects!
+
+### BREAKING CHANGES
+
+- When calling `unclog build`, unclog now only builds
+  _released_ entries into the changelog. To build _all_ entries
+  (including unreleased ones), please use `unclog build --all`
+  ([\#51](https://github.com/informalsystems/unclog/issues/51))
+- When calling `unclog release`, the `--version` flag has been removed and
+  has become a mandatory positional argument, e.g. `unclog release v0.1.0`
+  ([\#60](https://github.com/informalsystems/unclog/pull/60))
+
+### DEPENDENCIES
+
+- Switch from structopt to clap to remove dependency on now unmaintained
+  `ansi_term` package, and update other dependencies where possible
+  ([\#49](https://github.com/informalsystems/unclog/pull/49))
+
+### FEATURES
+
+- Add support for GitLab repositories.
+  ([#37](https://github.com/informalsystems/unclog/pull/37))
+- Add support for a prologue to be inserted at the beginning of the changelog
+  ([\#47](https://github.com/informalsystems/unclog/issues/47))
+
 ## v0.5.1
 
 *27 January 2023*
