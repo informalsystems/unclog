@@ -31,7 +31,22 @@ component2 = { name = "Component 2", path = "2nd-component" }
     let config = toml::from_str(CONFIG_FILE).unwrap();
     let changelog = Changelog::read_from_dir(&config, "./tests/full").unwrap();
     let expected = std::fs::read_to_string("./tests/full/expected.md").unwrap();
-    assert_eq!(expected, changelog.render(&config));
+    assert_eq!(expected, changelog.render_all(&config));
+}
+
+#[test]
+fn released_only() {
+    const CONFIG_FILE: &str = r#"
+[components.all]
+component1 = { name = "component1" }
+component2 = { name = "Component 2", path = "2nd-component" }
+"#;
+
+    init_logger();
+    let config = toml::from_str(CONFIG_FILE).unwrap();
+    let changelog = Changelog::read_from_dir(&config, "./tests/full").unwrap();
+    let expected = std::fs::read_to_string("./tests/full/expected-released-only.md").unwrap();
+    assert_eq!(expected, changelog.render_released(&config));
 }
 
 #[test]
