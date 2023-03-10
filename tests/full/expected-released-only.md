@@ -2,16 +2,6 @@
 
 This goes at the BEGINNING of the changelog.
 
-## Unreleased
-
-### FEATURES
-
-- Travel through space as a beneficial example
-
-### IMPROVEMENTS
-
-- Eat the profile
-
 ## v0.2.1
 
 *31 Mar 2021*

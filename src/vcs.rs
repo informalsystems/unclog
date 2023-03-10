@@ -98,8 +98,8 @@ impl GenericProject for GitHubProject {
             "{}/{}",
             self,
             match platform_id {
-                PlatformId::Issue(no) => format!("issues/{}", no),
-                PlatformId::PullRequest(no) => format!("pull/{}", no),
+                PlatformId::Issue(no) => format!("issues/{no}"),
+                PlatformId::PullRequest(no) => format!("pull/{no}"),
             }
         ))?)
     }
@@ -110,8 +110,7 @@ impl GenericProject for GitHubProject {
 
     fn url(&self) -> Url {
         let url_str = self.url_str();
-        Url::parse(&url_str)
-            .unwrap_or_else(|e| panic!("failed to parse URL \"{}\": {}", url_str, e))
+        Url::parse(&url_str).unwrap_or_else(|e| panic!("failed to parse URL \"{url_str}\": {e}"))
     }
 }
 

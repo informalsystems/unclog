@@ -26,7 +26,7 @@ being able to tailor content to each audience: Git commit histories for our
 
 ## Requirements
 
-- Rust v1.54+ with `cargo`
+- Rust v1.67+ with `cargo`
 - Git
 - Your project is hosted on GitHub (for automatic changelog entry generation
   from the CLI)
@@ -344,5 +344,5 @@ limitations under the License.
 [audit-image]: https://github.com/informalsystems/unclog/workflows/Audit-Check/badge.svg
 [audit-link]: https://github.com/informalsystems/unclog/actions?query=workflow%3AAudit-Check
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
-[license-link]: https://github.com/informalsystems/unclog/blob/master/LICENSE
+[license-link]: https://github.com/informalsystems/unclog/blob/main/LICENSE
 [rustc-image]: https://img.shields.io/badge/rustc-stable-blue.svg

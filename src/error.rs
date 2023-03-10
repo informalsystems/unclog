@@ -82,4 +82,6 @@ pub enum Error {
     InvalidUrl(String),
     #[error("component \"{0}\" is not defined in changelog config.toml file")]
     ComponentNotDefined(String),
+    #[error("CLI error: {0}")]
+    CommandLine(String),
 }

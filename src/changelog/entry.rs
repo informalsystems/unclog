@@ -43,7 +43,7 @@ fn extract_entry_id<S: AsRef<str>>(s: S) -> Result<u64> {
     let s = s.as_ref();
     let num_digits = s
         .chars()
-        .position(|c| !('0'..='9').contains(&c))
+        .position(|c| !c.is_ascii_digit())
         .ok_or_else(|| Error::InvalidEntryId(s.to_owned()))?;
     let digits = &s[..num_digits];
     Ok(u64::from_str(digits)?)

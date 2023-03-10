@@ -38,6 +38,9 @@ pub struct Changelog {
     pub maybe_unreleased: Option<ChangeSet>,
     /// An ordered list of releases' changes.
     pub releases: Vec<Release>,
+    /// Any additional content that must appear at the beginning of the
+    /// changelog.
+    pub prologue: Option<String>,
     /// Any additional content that must appear at the end of the changelog
     /// (e.g. historical changelog content prior to switching to `unclog`).
     pub epilogue: Option<String>,
@@ -50,17 +53,32 @@ impl Changelog {
             .as_ref()
             .map_or(true, ChangeSet::is_empty)
             && self.releases.iter().all(|r| r.changes.is_empty())
+            && self.prologue.as_ref().map_or(true, String::is_empty)
             && self.epilogue.as_ref().map_or(true, String::is_empty)
     }
 
     /// Renders the full changelog to a string.
-    pub fn render(&self, config: &Config) -> String {
+    pub fn render_all(&self, config: &Config) -> String {
+        self.render(config, true)
+    }
+
+    /// Renders all released versions' entries, excluding unreleased ones.
+    pub fn render_released(&self, config: &Config) -> String {
+        self.render(config, false)
+    }
+
+    fn render(&self, config: &Config, render_unreleased: bool) -> String {
         let mut paragraphs = vec![config.heading.clone()];
         if self.is_empty() {
             paragraphs.push(config.empty_msg.clone());
         } else {
-            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs(config) {
-                paragraphs.extend(unreleased_paragraphs);
+            if let Some(prologue) = self.prologue.as_ref() {
+                paragraphs.push(prologue.clone());
+            }
+            if render_unreleased {
+                if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs(config) {
+                    paragraphs.extend(unreleased_paragraphs);
+                }
             }
             self.releases
                 .iter()
@@ -93,14 +111,35 @@ impl Changelog {
     ///
     /// Creates the target folder if it doesn't exist, and optionally copies an
     /// epilogue into it.
-    pub fn init_dir<P: AsRef<Path>, E: AsRef<Path>>(
+    pub fn init_dir<P: AsRef<Path>, R: AsRef<Path>, E: AsRef<Path>>(
         config: &Config,
         path: P,
+        maybe_prologue_path: Option<R>,
         maybe_epilogue_path: Option<E>,
     ) -> Result<()> {
         let path = path.as_ref();
         // Ensure the desired path exists.
         ensure_dir(path)?;
+
+        // Optionally copy a prologue into the target path.
+        let maybe_prologue_path = maybe_prologue_path.as_ref();
+        if let Some(pp) = maybe_prologue_path {
+            let new_prologue_path = path.join(&config.prologue_filename);
+            if !fs_utils::file_exists(&new_prologue_path) {
+                fs::copy(pp, &new_prologue_path)
+                    .map_err(|e| Error::Io(pp.as_ref().to_path_buf(), e))?;
+                info!(
+                    "Copied prologue from {} to {}",
+                    path_to_str(pp),
+                    path_to_str(&new_prologue_path),
+                );
+            } else {
+                info!(
+                    "Prologue file already exists, not copying: {}",
+                    path_to_str(&new_prologue_path)
+                );
+            }
+        }
 
         // Optionally copy an epilogue into the target path.
         let maybe_epilogue_path = maybe_epilogue_path.as_ref();
@@ -195,11 +234,14 @@ impl Changelog {
             .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
         releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
+        let prologue = read_to_string_opt(path.join(&config.prologue_filename))?
+            .map(|p| trim_newlines(&p).to_owned());
         let epilogue = read_to_string_opt(path.join(&config.epilogue_filename))?
             .map(|e| trim_newlines(&e).to_owned());
         Ok(Self {
             maybe_unreleased: unreleased,
             releases,
+            prologue,
             epilogue,
         })
     }
@@ -343,7 +385,7 @@ impl Changelog {
             textwrap::Options::new(config.wrap as usize)
                 .subsequent_indent("  ")
                 .break_words(false)
-                .word_separator(textwrap::word_separators::AsciiSpace),
+                .word_separator(textwrap::WordSeparator::AsciiSpace),
         )
         .join("\n");
         debug!("Rendered wrapped change:\n{}", wrapped_rendered);
