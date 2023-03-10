@@ -193,7 +193,7 @@ unclog --help
 ```bash
 # Moves all entries in your ".changelog/unreleased" folder to
 # ".changelog/v0.2.0" and ensures the ".changelog/unreleased" folder is empty.
-unclog release --version v0.2.0
+unclog release v0.2.0
 ```
 
 ### Components/Submodules
