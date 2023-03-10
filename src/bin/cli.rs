@@ -137,7 +137,6 @@ enum Command {
         editor: PathBuf,
 
         /// The version string to use for the new release (e.g. "v0.1.0").
-        #[arg(long)]
         version: String,
     },
 }
