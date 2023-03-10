@@ -37,7 +37,7 @@ url = "2.3"
 
 simplelog = { version = "0.12", optional = true }
 clap = { version = "4.1", features = ["derive", "env"], optional = true }
-tempfile = { version = "3.3", optional = true }
+tempfile = { version = "3.4", optional = true }
 
 [dev-dependencies]
 env_logger = "0.10"
