@@ -58,7 +58,16 @@ impl Changelog {
     }
 
     /// Renders the full changelog to a string.
-    pub fn render(&self, config: &Config) -> String {
+    pub fn render_all(&self, config: &Config) -> String {
+        self.render(config, true)
+    }
+
+    /// Renders all released versions' entries, excluding unreleased ones.
+    pub fn render_released(&self, config: &Config) -> String {
+        self.render(config, false)
+    }
+
+    fn render(&self, config: &Config, render_unreleased: bool) -> String {
         let mut paragraphs = vec![config.heading.clone()];
         if self.is_empty() {
             paragraphs.push(config.empty_msg.clone());
@@ -66,8 +75,10 @@ impl Changelog {
             if let Some(prologue) = self.prologue.as_ref() {
                 paragraphs.push(prologue.clone());
             }
-            if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs(config) {
-                paragraphs.extend(unreleased_paragraphs);
+            if render_unreleased {
+                if let Ok(unreleased_paragraphs) = self.unreleased_paragraphs(config) {
+                    paragraphs.extend(unreleased_paragraphs);
+                }
             }
             self.releases
                 .iter()

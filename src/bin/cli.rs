@@ -123,9 +123,12 @@ enum Command {
     },
     /// Build the changelog from the input path and write the output to stdout.
     Build {
+        /// Render all changes, including released and unreleased ones.
+        #[arg(short, long)]
+        all: bool,
         /// Only render unreleased changes.
         #[arg(short, long)]
-        unreleased: bool,
+        unreleased_only: bool,
     },
     /// Release any unreleased features.
     Release {
@@ -180,7 +183,10 @@ fn main() {
         Command::GenerateConfig { remote, force } => {
             Changelog::generate_config(&config_path, opt.path, remote, force)
         }
-        Command::Build { unreleased } => build_changelog(&config, &opt.path, unreleased),
+        Command::Build {
+            all,
+            unreleased_only,
+        } => build_changelog(&config, &opt.path, all, unreleased_only),
         Command::Add {
             editor,
             maybe_component,
@@ -252,13 +258,21 @@ fn init_changelog(
     }
 }
 
-fn build_changelog(config: &Config, path: &Path, unreleased: bool) -> Result<()> {
+fn build_changelog(config: &Config, path: &Path, all: bool, unreleased_only: bool) -> Result<()> {
+    if all && unreleased_only {
+        return Err(Error::CommandLine(
+            "cannot combine --all and --unreleased-only flags when building the changelog"
+                .to_string(),
+        ));
+    }
     let changelog = Changelog::read_from_dir(config, path)?;
     log::info!("Success!");
-    if unreleased {
+    if unreleased_only {
         println!("{}", changelog.render_unreleased(config)?);
+    } else if all {
+        println!("{}", changelog.render_all(config));
     } else {
-        println!("{}", changelog.render(config));
+        println!("{}", changelog.render_released(config));
     }
     Ok(())
 }
