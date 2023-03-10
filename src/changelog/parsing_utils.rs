@@ -10,7 +10,7 @@ pub(crate) fn extract_release_version(s: &str) -> crate::Result<&str> {
     // Just find the first digit in the string
     let version_start = s
         .chars()
-        .position(|c| ('0'..='9').contains(&c))
+        .position(|c| c.is_ascii_digit())
         .ok_or_else(|| Error::CannotExtractVersion(s.to_owned()))?;
     Ok(&s[version_start..])
 }
