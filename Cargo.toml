@@ -24,7 +24,7 @@ default = ["cli"]
 cli = ["simplelog", "clap", "tempfile"]
 
 [dependencies]
-git2 = "0.16"
+git2 = "0.17"
 handlebars = "4.3"
 log = "0.4"
 semver = "1.0"
