@@ -33,7 +33,7 @@ serde_json = "1.0"
 textwrap = "0.16"
 thiserror = "1.0"
 toml = "0.7"
-url = "2.3"
+url = "2.4"
 
 simplelog = { version = "0.12", optional = true }
 clap = { version = "4.1", features = ["derive", "env"], optional = true }
