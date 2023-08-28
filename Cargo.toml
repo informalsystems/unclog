@@ -36,7 +36,7 @@ toml = "0.7"
 url = "2.4"
 
 simplelog = { version = "0.12", optional = true }
-clap = { version = "4.1", features = ["derive", "env"], optional = true }
+clap = { version = "4.4", features = ["derive", "env"], optional = true }
 tempfile = { version = "3.8", optional = true }
 
 [dev-dependencies]
