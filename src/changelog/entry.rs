@@ -60,7 +60,7 @@ pub(crate) fn read_entries_sorted(
         .map(Entry::read_from_file)
         .collect::<Result<Vec<Entry>>>()?;
     // Sort entries by ID in ascending numeric order.
-    entries.sort_by(|a, b| match config.sort_entries_by {
+    entries.sort_by(|a, b| match config.change_set_sections.sort_entries_by {
         SortEntriesBy::ID => a.id.cmp(&b.id),
         SortEntriesBy::EntryText => a.details.cmp(&b.details),
     });

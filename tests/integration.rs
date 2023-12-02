@@ -52,6 +52,7 @@ component2 = { name = "Component 2", path = "2nd-component" }
 #[test]
 fn full_sorted_by_entry_text() {
     const CONFIG_FILE: &str = r#"
+[change_set_sections]
 sort_entries_by = "entry-text"
 
 [components.all]
