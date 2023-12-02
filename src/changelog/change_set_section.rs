@@ -46,7 +46,7 @@ impl ChangeSetSection {
         // Component sections must be sorted by ID
         component_sections.sort_by(|a, b| a.id.cmp(&b.id));
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
-        let entries = read_entries_sorted(entry_files)?;
+        let entries = read_entries_sorted(entry_files, config)?;
         Ok(Self {
             title,
             entries,

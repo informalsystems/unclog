@@ -1,11 +1,13 @@
 use crate::changelog::fs_utils::{path_to_str, read_to_string};
 use crate::changelog::parsing_utils::trim_newlines;
-use crate::{Error, Result};
+use crate::{Config, Error, Result};
 use log::debug;
 use std::ffi::OsStr;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+
+use super::config::SortEntriesBy;
 
 /// A single entry in a set of changes.
 #[derive(Debug, Clone)]
@@ -49,13 +51,19 @@ fn extract_entry_id<S: AsRef<str>>(s: S) -> Result<u64> {
     Ok(u64::from_str(digits)?)
 }
 
-pub(crate) fn read_entries_sorted(entry_files: Vec<PathBuf>) -> Result<Vec<Entry>> {
+pub(crate) fn read_entries_sorted(
+    entry_files: Vec<PathBuf>,
+    config: &Config,
+) -> Result<Vec<Entry>> {
     let mut entries = entry_files
         .into_iter()
         .map(Entry::read_from_file)
         .collect::<Result<Vec<Entry>>>()?;
     // Sort entries by ID in ascending numeric order.
-    entries.sort_by(|a, b| a.id.cmp(&b.id));
+    entries.sort_by(|a, b| match config.sort_entries_by {
+        SortEntriesBy::ID => a.id.cmp(&b.id),
+        SortEntriesBy::EntryText => a.details.cmp(&b.details),
+    });
     Ok(entries)
 }
 

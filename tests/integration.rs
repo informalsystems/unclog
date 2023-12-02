@@ -50,6 +50,24 @@ component2 = { name = "Component 2", path = "2nd-component" }
 }
 
 #[test]
+fn full_sorted_by_entry_text() {
+    const CONFIG_FILE: &str = r#"
+sort_entries_by = "entry-text"
+
+[components.all]
+component1 = { name = "component1" }
+component2 = { name = "Component 2", path = "2nd-component" }
+"#;
+
+    init_logger();
+    let config = toml::from_str(CONFIG_FILE).unwrap();
+    let changelog = Changelog::read_from_dir(&config, "./tests/full").unwrap();
+    let expected =
+        std::fs::read_to_string("./tests/full/expected-sorted-by-entry-text.md").unwrap();
+    assert_eq!(expected, changelog.render_all(&config));
+}
+
+#[test]
 fn change_template_rendering() {
     init_logger();
     let config = Config::read_from_file("./tests/full/config.toml").unwrap();

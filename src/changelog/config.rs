@@ -80,6 +80,8 @@ pub struct Config {
     /// Configuration relating to components/submodules.
     #[serde(default, skip_serializing_if = "is_default")]
     pub components: ComponentsConfig,
+    #[serde(default)]
+    pub sort_entries_by: SortEntriesBy,
 }
 
 impl Default for Config {
@@ -96,6 +98,7 @@ impl Default for Config {
             unreleased: UnreleasedConfig::default(),
             change_sets: ChangeSetsConfig::default(),
             components: ComponentsConfig::default(),
+            sort_entries_by: Default::default(),
         }
     }
 }
@@ -348,4 +351,15 @@ where
     D: Default + PartialEq,
 {
     D::default().eq(v)
+}
+
+/// Allows for configuration of how entries are to be sorted within change set
+/// sections.
+#[derive(Debug, Clone, Default, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SortEntriesBy {
+    #[serde(rename = "id")]
+    #[default]
+    ID,
+    #[serde(rename = "entry-text")]
+    EntryText,
 }
