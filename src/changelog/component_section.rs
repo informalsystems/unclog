@@ -55,7 +55,7 @@ impl ComponentSection {
             None => warn!("No path for component \"{}\"", id),
         }
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
-        let entries = read_entries_sorted(entry_files)?;
+        let entries = read_entries_sorted(entry_files, config)?;
         Ok(Self {
             id,
             name,

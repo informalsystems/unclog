@@ -77,6 +77,9 @@ pub struct Config {
     /// Configuration relating to sets of changes.
     #[serde(default, skip_serializing_if = "is_default")]
     pub change_sets: ChangeSetsConfig,
+    /// Configuration relating to change set sections.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub change_set_sections: ChangeSetSectionsConfig,
     /// Configuration relating to components/submodules.
     #[serde(default, skip_serializing_if = "is_default")]
     pub components: ComponentsConfig,
@@ -93,9 +96,10 @@ impl Default for Config {
             empty_msg: Self::default_empty_msg(),
             prologue_filename: Self::default_prologue_filename(),
             epilogue_filename: Self::default_epilogue_filename(),
-            unreleased: UnreleasedConfig::default(),
-            change_sets: ChangeSetsConfig::default(),
-            components: ComponentsConfig::default(),
+            unreleased: Default::default(),
+            change_sets: Default::default(),
+            change_set_sections: Default::default(),
+            components: Default::default(),
         }
     }
 }
@@ -298,6 +302,13 @@ impl ChangeSetsConfig {
     }
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct ChangeSetSectionsConfig {
+    /// Sort entries in change set sections by a specific property.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub sort_entries_by: SortEntriesBy,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ComponentsConfig {
     #[serde(
@@ -348,4 +359,15 @@ where
     D: Default + PartialEq,
 {
     D::default().eq(v)
+}
+
+/// Allows for configuration of how entries are to be sorted within change set
+/// sections.
+#[derive(Debug, Clone, Default, PartialOrd, Ord, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SortEntriesBy {
+    #[serde(rename = "id")]
+    #[default]
+    ID,
+    #[serde(rename = "entry-text")]
+    EntryText,
 }
