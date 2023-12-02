@@ -20,20 +20,28 @@ This goes at the BEGINNING of the changelog.
 
 - [Component 2](2nd-component)
   - Gargle the truffle
-  - Laugh at the gaggle
   - Travel the gravel
+  - Laugh at the gaggle
 
 ### FEATURES
 
 - General
-  - Carry the wobbles
   - Nibble the bubbles
+  - Carry the wobbles
 - component1
   - Fasten the handles
   - Hasten the sandals
 - [Component 2](2nd-component)
-  - Drizzle the funnel
   - Waggle the juggle
+  - Drizzle the funnel
+
+## v0.1.1
+
+*31 Mar 2021*
+
+### BUG FIXES
+
+- Some emergency patch for the old release line
 
 ## v0.2.0
 
@@ -43,13 +51,13 @@ It's finally out, yay!
 
 ### BREAKING CHANGES
 
-- Educate the specialist vigorously
 - Let the tune meet the unlawful disaster
+- Educate the specialist vigorously
 
 ### FEATURES
 
-- Attend the entry with an ambitious blank
 - Stir the engineer with the foolish sound
+- Attend the entry with an ambitious blank
 
 ## v0.2.0-beta
 
@@ -75,21 +83,13 @@ This is the first pre-release of our upcoming v0.2.0 release.
 ### BREAKING CHANGES
 
 - Add serene brown drops to the scattered magazine
-- Eat the resort and cry
 - Tick the effect in actual chemicals
+- Eat the resort and cry
 
 ### IMPROVEMENTS
 
 - Hover over the historian with a melodic mix
   that travels over multiple lines.
-
-## v0.1.1
-
-*31 Mar 2021*
-
-### BUG FIXES
-
-- Some emergency patch for the old release line
 
 ## v0.1.0
 

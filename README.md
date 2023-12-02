@@ -272,6 +272,30 @@ empty_msg = "Nothing to see here! Add some entries to get started."
 # generated changelog).
 epilogue_filename = "epilogue.md"
 
+# Sort releases by the given property/properties. Possible values include:
+# - `version` : Sort releases by semantic version.
+# - `date`    : Sort releases by release date.
+#
+# This is an array, as one could potentially first sort by date and then version
+# in cases where multiple releases were cut on the same date.
+#
+# Release dates are currently parsed from release summaries, and are expected to
+# be located on the first line of the release summary.
+sort_releases_by = ["version"]
+
+# Release date formats to expect in the release summary, in order of precedence.
+#
+# See https://docs.rs/chrono/latest/chrono/format/strftime/index.html for
+# possible format specifiers.
+release_date_formats = [
+    # "*December 1, 2023*
+    "*%B %d, %Y*",
+    # "*Dec 1, 2023*
+    "*%b %d, %Y*",
+    # "2023-12-01" (ISO format)
+    "%F",
+]
+
 
 # Settings relating to unreleased changelog entries.
 [unreleased]

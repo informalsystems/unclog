@@ -69,6 +69,27 @@ component2 = { name = "Component 2", path = "2nd-component" }
 }
 
 #[test]
+fn full_sorted_by_release_date() {
+    const CONFIG_FILE: &str = r#"
+sort_releases_by = ["date"]
+release_date_formats = [
+    "*%d %b %Y*"
+]
+
+[components.all]
+component1 = { name = "component1" }
+component2 = { name = "Component 2", path = "2nd-component" }
+"#;
+
+    init_logger();
+    let config = toml::from_str(CONFIG_FILE).unwrap();
+    let changelog = Changelog::read_from_dir(&config, "./tests/full").unwrap();
+    let expected =
+        std::fs::read_to_string("./tests/full/expected-sorted-by-release-date.md").unwrap();
+    assert_eq!(expected, changelog.render_all(&config));
+}
+
+#[test]
 fn change_template_rendering() {
     init_logger();
     let config = Config::read_from_file("./tests/full/config.toml").unwrap();

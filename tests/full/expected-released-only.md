@@ -73,6 +73,14 @@ This is the first pre-release of our upcoming v0.2.0 release.
 - Hover over the historian with a melodic mix
   that travels over multiple lines.
 
+## v0.1.1
+
+*31 Mar 2021*
+
+### BUG FIXES
+
+- Some emergency patch for the old release line
+
 ## v0.1.0
 
 *8 Jan 2021*
