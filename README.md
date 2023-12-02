@@ -284,8 +284,8 @@ folder = "unreleased"
 heading = "## Unreleased"
 
 
-# Settings relating to sets (groups) of changes in the changelog. For example,
-# the "BREAKING CHANGES" section would be considered a change set.
+# Settings relating to sets (groups) of changes in the changelog. For example, a
+# particular version of the software (e.g. "v1.0.0") is typically a change set.
 [change_sets]
 
 # The filename containing a summary of the intended changes. Relative to the
@@ -294,6 +294,16 @@ summary_filename = "summary.md"
 
 # The extension of files in a change set.
 entry_ext = "md"
+
+
+# Settings relating to all sections within a change set. For example, the
+# "BREAKING CHANGES" section for a particular release is a change set section.
+[change_set_sections]
+
+# Sort entries by a particular property. Possible values include:
+# - `id`         : The issue/PR number (the default value).
+# - `entry-text` : The entry text itself.
+sort_entries_by = "id"
 
 
 # Settings related to components/sub-modules. Only relevant if you make use of
