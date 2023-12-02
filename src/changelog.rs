@@ -17,6 +17,7 @@ pub use entry::Entry;
 pub use release::Release;
 use serde_json::json;
 
+use crate::changelog::config::SortReleasesBy;
 use crate::changelog::parsing_utils::{extract_release_version, trim_newlines};
 use crate::fs_utils::{
     self, ensure_dir, path_to_str, read_and_filter_dir, read_to_string_opt, rm_gitkeep,
@@ -233,7 +234,32 @@ impl Changelog {
             .map(|path| Release::read_from_dir(config, path))
             .collect::<Result<Vec<Release>>>()?;
         // Sort releases by version in descending order (newest to oldest).
-        releases.sort_by(|a, b| a.version.cmp(&b.version).reverse());
+        releases.sort_by(|a, b| {
+            for sort_by in &config.sort_releases_by.0 {
+                match sort_by {
+                    SortReleasesBy::Version => {
+                        if a.version == b.version {
+                            continue;
+                        }
+                        return a.version.cmp(&b.version).reverse();
+                    }
+                    SortReleasesBy::Date => {
+                        // If either date is missing, skip to the next search
+                        // criterion.
+                        if a.maybe_date.is_none() || b.maybe_date.is_none() {
+                            continue;
+                        }
+                        if a.maybe_date == b.maybe_date {
+                            continue;
+                        }
+                        return a.maybe_date.cmp(&b.maybe_date).reverse();
+                    }
+                }
+            }
+            // Fall back to sorting by version if no sort configuration is
+            // provided.
+            a.version.cmp(&b.version).reverse()
+        });
         let prologue = read_to_string_opt(path.join(&config.prologue_filename))?
             .map(|p| trim_newlines(&p).to_owned());
         let epilogue = read_to_string_opt(path.join(&config.epilogue_filename))?

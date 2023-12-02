@@ -71,6 +71,15 @@ pub struct Config {
         skip_serializing_if = "Config::is_default_epilogue_filename"
     )]
     pub epilogue_filename: String,
+
+    /// Sort releases by the given properties.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub sort_releases_by: ReleaseSortingConfig,
+    /// An ordered list of possible formats to expect when parsing release
+    /// summaries to establish release dates.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub release_date_formats: ReleaseDateFormats,
+
     /// Configuration relating to unreleased changelog entries.
     #[serde(default, skip_serializing_if = "is_default")]
     pub unreleased: UnreleasedConfig,
@@ -97,6 +106,8 @@ impl Default for Config {
             prologue_filename: Self::default_prologue_filename(),
             epilogue_filename: Self::default_epilogue_filename(),
             unreleased: Default::default(),
+            sort_releases_by: Default::default(),
+            release_date_formats: Default::default(),
             change_sets: Default::default(),
             change_set_sections: Default::default(),
             components: Default::default(),
@@ -244,6 +255,42 @@ impl<'de> Deserialize<'de> for BulletStyle {
         String::deserialize(deserializer)?
             .parse::<Self>()
             .map_err(|e| D::Error::custom(format!("{e}")))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReleaseSortingConfig(pub Vec<SortReleasesBy>);
+
+impl Default for ReleaseSortingConfig {
+    fn default() -> Self {
+        Self(vec![SortReleasesBy::Version])
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub enum SortReleasesBy {
+    /// Sort releases in descending order by semantic version, with most recent
+    /// version first.
+    #[serde(rename = "version")]
+    #[default]
+    Version,
+    /// Sort releases in descending order by release date, with most recent
+    /// release first.
+    #[serde(rename = "date")]
+    Date,
+}
+
+/// An ordered list of possible release date formats to expect when parsing
+/// release summaries for release dates.
+///
+/// See <https://docs.rs/chrono/latest/chrono/format/strftime/index.html> for
+/// possible options.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReleaseDateFormats(pub Vec<String>);
+
+impl Default for ReleaseDateFormats {
+    fn default() -> Self {
+        Self(vec!["%F".to_string()])
     }
 }
 
