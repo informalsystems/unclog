@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## v0.7.0
+
+*Dec 3, 2023*
+
+This release includes a few workflow enhancements that will hopefully make
+users' lives a little easier and cater for a few more variations of how
+changelogs are generated.
+
+### FEATURES
+
+- Add configuration file section `[change_set_sections]` with parameter
+  `sort_entries_by` to sort entries in change set sections either by issue/PR
+  number (`id`; default), or alphabetically (`entry-text`)
+  ([\#147](https://github.com/informalsystems/unclog/pull/147))
+- Add ability to optionally sort releases by date
+  to configuration - see the README for details
+  ([\#148](https://github.com/informalsystems/unclog/pull/148))
+- Add CLI subcommand `find-duplicates` to assist in finding changelog entries
+  that are duplicated across releases - see the README for more details
+  ([\#149](https://github.com/informalsystems/unclog/pull/149))
+
 ## v0.6.0
 
 *Mar 10, 2023*
