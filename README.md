@@ -230,6 +230,17 @@ file (see below) prior to attempting to add an entry that references any of your
 components. Otherwise `unclog` will fail. This is to ensure that people don't
 add entries for incorrectly named or non-existent components.
 
+### Duplicate detection
+
+`unclog` has a convenience method to assist in finding duplicate entries across
+releases on your local branch (as per [\#81], a future version aims to provide
+this _across_ Git repository branches).
+
+```bash
+# List all the duplicate entries across releases.
+unclog find-duplicates
+```
+
 ### Configuration
 
 Certain `unclog` settings can be overridden through the use of a configuration
@@ -386,3 +397,4 @@ limitations under the License.
 [license-image]: https://img.shields.io/badge/license-Apache2.0-blue.svg
 [license-link]: https://github.com/informalsystems/unclog/blob/main/LICENSE
 [rustc-image]: https://img.shields.io/badge/rustc-stable-blue.svg
+[\#81]: https://github.com/informalsystems/unclog/issues/81
