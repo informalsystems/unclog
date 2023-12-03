@@ -2,7 +2,7 @@
 
 use lazy_static::lazy_static;
 use std::{path::Path, sync::Mutex};
-use unclog::{Changelog, Config, PlatformId};
+use unclog::{ChangeSetComponentPath, Changelog, Config, EntryReleasePath, PlatformId};
 
 lazy_static! {
     static ref LOGGING_INITIALIZED: Mutex<u8> = Mutex::new(0);
@@ -109,5 +109,88 @@ fn change_template_rendering() {
         )
         .unwrap();
         assert_eq!(actual, expected);
+    }
+}
+
+#[test]
+fn entry_iteration() {
+    const CONFIG_FILE: &str = r#"
+[components.all]
+component1 = { name = "component1" }
+component2 = { name = "Component 2", path = "2nd-component" }
+"#;
+
+    const UNRELEASED: &str = "Unreleased";
+    const GENERAL: &str = "General";
+    const EXPECTED_ENTRIES: &[(&str, &str, &str, &str)] = &[
+        (
+            UNRELEASED,
+            "FEATURES",
+            GENERAL,
+            "- Travel through space as a beneficial example",
+        ),
+        (UNRELEASED, "IMPROVEMENTS", GENERAL, "- Eat the profile"),
+        (
+            "v0.2.1",
+            "BREAKING CHANGES",
+            "Component 2",
+            "- Gargle the truffle",
+        ),
+        (
+            "v0.2.1",
+            "BREAKING CHANGES",
+            "Component 2",
+            "- Travel the gravel",
+        ),
+        (
+            "v0.2.1",
+            "BREAKING CHANGES",
+            "Component 2",
+            "- Laugh at the gaggle",
+        ),
+        ("v0.2.1", "FEATURES", GENERAL, "- Nibble the bubbles"),
+        ("v0.2.1", "FEATURES", GENERAL, "- Carry the wobbles"),
+        ("v0.2.1", "FEATURES", "component1", "- Fasten the handles"),
+        ("v0.2.1", "FEATURES", "component1", "- Hasten the sandals"),
+    ];
+
+    init_logger();
+    let config = toml::from_str(CONFIG_FILE).unwrap();
+    let changelog = Changelog::read_from_dir(&config, "./tests/full").unwrap();
+    let mut entries = changelog.entries();
+
+    for (i, (expected_release, expected_section, expected_component, expected_entry_details)) in
+        EXPECTED_ENTRIES.iter().enumerate()
+    {
+        let next = entries.next().unwrap();
+        assert_eq!(next.changelog, &changelog);
+        let change_set_path = match next.release_path {
+            EntryReleasePath::Unreleased(change_set_path) => {
+                assert_eq!(&UNRELEASED, expected_release, "for entry {i}");
+                change_set_path
+            }
+            EntryReleasePath::Released(release, change_set_path) => {
+                assert_eq!(&release.id, expected_release, "for entry {i}");
+                assert_eq!(
+                    &change_set_path.section_path.change_set_section.title,
+                    expected_section
+                );
+                change_set_path
+            }
+        };
+        assert_eq!(
+            &change_set_path.section_path.change_set_section.title,
+            expected_section
+        );
+        match change_set_path.section_path.component_path {
+            ChangeSetComponentPath::General(entry) => {
+                assert_eq!(&GENERAL, expected_component);
+                assert_eq!(&entry.details, expected_entry_details);
+            }
+            ChangeSetComponentPath::Component(component_section, entry) => {
+                assert_eq!(&component_section.name, expected_component);
+                assert_eq!(&entry.details, expected_entry_details);
+            }
+        }
     }
 }

@@ -1,6 +1,6 @@
 //! `unclog` helps you build your changelog.
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use log::error;
 use simplelog::{ColorChoice, LevelFilter, TermLogger, TerminalMode};
 use std::path::{Path, PathBuf};
@@ -121,6 +121,12 @@ enum Command {
         #[arg(name = "message", short, long)]
         maybe_message: Option<String>,
     },
+    /// Searches for duplicate entries across releases in this changelog.
+    FindDuplicates {
+        /// The format to use when writing the duplicates to stdout.
+        #[arg(value_enum, short, long, default_value = "simple")]
+        format: DuplicatesOutputFormat,
+    },
     /// Build the changelog from the input path and write the output to stdout.
     Build {
         /// Render all changes, including released and unreleased ones.
@@ -139,6 +145,15 @@ enum Command {
         /// The version string to use for the new release (e.g. "v0.1.0").
         version: String,
     },
+}
+
+#[derive(Debug, Clone, Default, Copy, ValueEnum)]
+enum DuplicatesOutputFormat {
+    /// A simple table with no borders.
+    #[default]
+    Simple,
+    /// A table with borders made of ASCII characters.
+    AsciiTable,
 }
 
 fn main() {
@@ -230,6 +245,7 @@ fn main() {
                 &id,
             ),
         },
+        Command::FindDuplicates { format } => find_duplicates(&config, &opt.path, format),
         Command::Release { editor, version } => {
             prepare_release(&config, &editor, &opt.path, &version)
         }
@@ -317,6 +333,35 @@ fn add_unreleased_entry_with_editor(
     }
 
     Changelog::add_unreleased_entry(config, path, section, component, id, &tmpfile_content)
+}
+
+fn find_duplicates(
+    config: &Config,
+    path: &Path,
+    output_format: DuplicatesOutputFormat,
+) -> Result<()> {
+    let changelog = Changelog::read_from_dir(config, path)?;
+    let dups = changelog.find_duplicates_across_releases();
+    if dups.is_empty() {
+        log::info!("No duplicates found");
+        return Ok(());
+    }
+    log::info!("Found {} duplicate(s)", dups.len());
+
+    let mut table = comfy_table::Table::new();
+    table.load_preset(match output_format {
+        DuplicatesOutputFormat::Simple => comfy_table::presets::NOTHING,
+        DuplicatesOutputFormat::AsciiTable => comfy_table::presets::ASCII_FULL,
+    });
+
+    for (path_a, path_b) in dups {
+        table.add_row(vec![
+            path.join(path_a.as_path(config)).display(),
+            path.join(path_b.as_path(config)).display(),
+        ]);
+    }
+    println!("{table}");
+    Ok(())
 }
 
 fn prepare_release(config: &Config, editor: &Path, path: &Path, version: &str) -> Result<()> {

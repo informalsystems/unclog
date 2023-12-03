@@ -10,8 +10,10 @@ use std::str::FromStr;
 use super::config::SortEntriesBy;
 
 /// A single entry in a set of changes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Entry {
+    /// The original filename of this entry.
+    pub filename: String,
     /// The issue/pull request ID relating to this entry.
     pub id: u64,
     /// The content of the entry.
@@ -24,12 +26,15 @@ impl Entry {
     pub fn read_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path = path.as_ref();
         debug!("Loading entry from {}", path.display());
+        let orig_id = path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
+            .to_string();
+        let id = extract_entry_id(&orig_id)?;
         Ok(Self {
-            id: extract_entry_id(
-                path.file_name()
-                    .and_then(OsStr::to_str)
-                    .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?,
-            )?,
+            filename: orig_id,
+            id,
             details: trim_newlines(&read_to_string(path)?).to_owned(),
         })
     }

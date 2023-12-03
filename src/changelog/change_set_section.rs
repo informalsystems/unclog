@@ -1,16 +1,22 @@
 use crate::changelog::component_section::package_section_filter;
 use crate::changelog::entry::read_entries_sorted;
 use crate::changelog::fs_utils::{entry_filter, path_to_str, read_and_filter_dir};
-use crate::{ComponentSection, Config, Entry, Error, Result};
+use crate::{
+    ChangeSetComponentPath, ChangeSetSectionPath, ComponentSection, Config, Entry, Error, Result,
+};
 use log::debug;
 use std::ffi::OsStr;
 use std::path::Path;
 
+use super::component_section::ComponentSectionIter;
+
 /// A single section in a set of changes.
 ///
 /// For example, the "FEATURES" or "BREAKING CHANGES" section.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChangeSetSection {
+    /// Original ID of this change set section (the folder name).
+    pub id: String,
     /// A short, descriptive title for this section (e.g. "BREAKING CHANGES").
     pub title: String,
     /// General entries in the change set section.
@@ -37,7 +43,7 @@ impl ChangeSetSection {
             .and_then(OsStr::to_str)
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
-        let title = change_set_section_title(id);
+        let title = change_set_section_title(&id);
         let component_section_dirs = read_and_filter_dir(path, package_section_filter)?;
         let mut component_sections = component_section_dirs
             .into_iter()
@@ -48,6 +54,7 @@ impl ChangeSetSection {
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
         let entries = read_entries_sorted(entry_files, config)?;
         Ok(Self {
+            id,
             title,
             entries,
             component_sections,
@@ -93,6 +100,119 @@ impl ChangeSetSection {
             );
         }
         format!("### {}\n\n{}", self.title, lines.join("\n"))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ChangeSetSectionIter<'a> {
+    section: &'a ChangeSetSection,
+    state: ChangeSetSectionIterState<'a>,
+}
+
+impl<'a> ChangeSetSectionIter<'a> {
+    pub(crate) fn new(section: &'a ChangeSetSection) -> Option<Self> {
+        if !section.entries.is_empty() {
+            Some(Self {
+                section,
+                state: ChangeSetSectionIterState::General(0),
+            })
+        } else {
+            Some(Self {
+                section,
+                state: ChangeSetSectionIterState::ComponentSection(ComponentSectionsIter::new(
+                    section,
+                )?),
+            })
+        }
+    }
+}
+
+impl<'a> Iterator for ChangeSetSectionIter<'a> {
+    type Item = ChangeSetSectionPath<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.state {
+            ChangeSetSectionIterState::General(entry_id) => {
+                match self.section.entries.get(*entry_id) {
+                    Some(entry) => {
+                        // Next entry in the general section.
+                        *entry_id += 1;
+                        Some(ChangeSetSectionPath {
+                            change_set_section: self.section,
+                            component_path: ChangeSetComponentPath::General(entry),
+                        })
+                    }
+                    // Move on to the component sections.
+                    None => {
+                        self.state = ChangeSetSectionIterState::ComponentSection(
+                            ComponentSectionsIter::new(self.section)?,
+                        );
+                        self.next()
+                    }
+                }
+            }
+            ChangeSetSectionIterState::ComponentSection(component_sections_iter) => {
+                Some(ChangeSetSectionPath {
+                    change_set_section: self.section,
+                    component_path: component_sections_iter.next()?,
+                })
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ChangeSetSectionIterState<'a> {
+    General(usize),
+    ComponentSection(ComponentSectionsIter<'a>),
+}
+
+#[derive(Debug, Clone)]
+struct ComponentSectionsIter<'a> {
+    sections: &'a Vec<ComponentSection>,
+    section_id: usize,
+    section_iter: ComponentSectionIter<'a>,
+}
+
+impl<'a> ComponentSectionsIter<'a> {
+    fn new(change_set_section: &'a ChangeSetSection) -> Option<Self> {
+        // Return an iterator for the first non-empty section.
+        for (section_id, section) in change_set_section.component_sections.iter().enumerate() {
+            if let Some(section_iter) = ComponentSectionIter::new(section) {
+                return Some(Self {
+                    sections: &change_set_section.component_sections,
+                    section_id,
+                    section_iter,
+                });
+            }
+        }
+        None
+    }
+}
+
+impl<'a> Iterator for ComponentSectionsIter<'a> {
+    type Item = ChangeSetComponentPath<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let section = self.sections.get(self.section_id)?;
+        match self.section_iter.next() {
+            Some(entry) => Some(ChangeSetComponentPath::Component(section, entry)),
+            None => {
+                // Find the next non-empty component section.
+                let mut maybe_section_iter = None;
+                while maybe_section_iter.is_none() {
+                    self.section_id += 1;
+                    let section = self.sections.get(self.section_id)?;
+                    maybe_section_iter = ComponentSectionIter::new(section);
+                }
+                // Safety: the above while loop will cause the function to exit
+                // if we run out of component sections. The while loop will only
+                // otherwise terminate and hit this line if
+                // maybe_section_iter.is_none() is false.
+                self.section_iter = maybe_section_iter.unwrap();
+                self.next()
+            }
+        }
     }
 }
 
