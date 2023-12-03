@@ -10,7 +10,7 @@ use std::str::FromStr;
 use super::config::SortEntriesBy;
 
 /// A single entry in a set of changes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Entry {
     /// The issue/pull request ID relating to this entry.
     pub id: u64,

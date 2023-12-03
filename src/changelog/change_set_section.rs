@@ -9,7 +9,7 @@ use std::path::Path;
 /// A single section in a set of changes.
 ///
 /// For example, the "FEATURES" or "BREAKING CHANGES" section.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChangeSetSection {
     /// A short, descriptive title for this section (e.g. "BREAKING CHANGES").
     pub title: String,

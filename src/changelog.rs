@@ -33,7 +33,7 @@ const DEFAULT_CHANGE_TEMPLATE: &str =
     "{{{ bullet }}} {{{ message }}} ([\\#{{ change_id }}]({{{ change_url }}}))";
 
 /// A log of changes for a specific project.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Changelog {
     /// Unreleased changes don't have version information associated with them.
     pub maybe_unreleased: Option<ChangeSet>,

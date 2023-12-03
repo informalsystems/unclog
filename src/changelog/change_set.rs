@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// A set of changes, either associated with a release or not.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ChangeSet {
     /// An optional high-level summary of the set of changes.
     pub maybe_summary: Option<String>,
