@@ -7,7 +7,7 @@ use log::{debug, warn};
 use std::path::Path;
 
 /// The changes associated with a specific release.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Release {
     /// This release's ID (could be the version plus a prefix, e.g. `v0.1.0`).
     pub id: String,

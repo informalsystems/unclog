@@ -10,7 +10,8 @@ pub use changelog::config::{
     BulletStyle, ChangeSetsConfig, ComponentsConfig, Config, UnreleasedConfig,
 };
 pub use changelog::{
-    ChangeSet, ChangeSetSection, Changelog, Component, ComponentSection, Entry, Release,
+    ChangeSet, ChangeSetComponentPath, ChangeSetSection, ChangeSetSectionPath, Changelog,
+    Component, ComponentSection, Entry, EntryChangeSetPath, EntryPath, EntryReleasePath, Release,
 };
 pub use error::Error;
 pub use vcs::{GenericProject, PlatformId, Project};

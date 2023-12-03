@@ -6,6 +6,7 @@ mod component;
 mod component_section;
 pub mod config;
 mod entry;
+mod entry_path;
 mod parsing_utils;
 mod release;
 
@@ -14,6 +15,9 @@ pub use change_set_section::ChangeSetSection;
 pub use component::Component;
 pub use component_section::ComponentSection;
 pub use entry::Entry;
+pub use entry_path::{
+    ChangeSetComponentPath, ChangeSetSectionPath, EntryChangeSetPath, EntryPath, EntryReleasePath,
+};
 pub use release::Release;
 use serde_json::json;
 
@@ -26,14 +30,17 @@ use crate::vcs::{from_git_repo, try_from, GenericProject};
 use crate::{Error, PlatformId, Result};
 use config::Config;
 use log::{debug, info, warn};
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use self::change_set::ChangeSetIter;
 
 const DEFAULT_CHANGE_TEMPLATE: &str =
     "{{{ bullet }}} {{{ message }}} ([\\#{{ change_id }}]({{{ change_url }}}))";
 
 /// A log of changes for a specific project.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Changelog {
     /// Unreleased changes don't have version information associated with them.
     pub maybe_unreleased: Option<ChangeSet>,
@@ -486,6 +493,143 @@ impl Changelog {
         fs::write(&unreleased_gitkeep, "").map_err(|e| Error::Io(unreleased_gitkeep.clone(), e))?;
         debug!("Wrote {}", path_to_str(&unreleased_gitkeep));
         Ok(())
+    }
+
+    /// Facilitates iteration through all entries in this changelog, producing
+    /// [`EntryPath`] instances such that one can trace the full path to each
+    /// entry. The order in which entries are produced is the order in which
+    /// they will be rendered if the changelog is built.
+    pub fn entries(&self) -> ChangelogEntryIter<'_> {
+        if let Some(unreleased) = &self.maybe_unreleased {
+            if let Some(change_set_iter) = ChangeSetIter::new(unreleased) {
+                return ChangelogEntryIter {
+                    changelog: self,
+                    state: ChangelogEntryIterState::Unreleased(change_set_iter),
+                };
+            }
+        }
+        if let Some(releases_iter) = ReleasesIter::new(self) {
+            ChangelogEntryIter {
+                changelog: self,
+                state: ChangelogEntryIterState::Released(releases_iter),
+            }
+        } else {
+            ChangelogEntryIter {
+                changelog: self,
+                state: ChangelogEntryIterState::Empty,
+            }
+        }
+    }
+
+    /// Returns a list of entries that are the same across releases within this
+    /// changelog. Effectively compares just the entries themselves without
+    /// regard for the release, section, component, etc.
+    pub fn find_duplicates_across_releases(&self) -> Vec<(EntryPath<'_>, EntryPath<'_>)> {
+        let mut dups = Vec::new();
+        let mut already_found = HashSet::new();
+
+        for path_a in self.entries() {
+            for path_b in self.entries() {
+                if path_a == path_b {
+                    continue;
+                }
+                if path_a.entry() == path_b.entry() && !already_found.contains(&(path_a, path_b)) {
+                    dups.push((path_a, path_b));
+                    already_found.insert((path_a, path_b));
+                    already_found.insert((path_b, path_a));
+                }
+            }
+        }
+        dups
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ChangelogEntryIter<'a> {
+    changelog: &'a Changelog,
+    state: ChangelogEntryIterState<'a>,
+}
+
+impl<'a> Iterator for ChangelogEntryIter<'a> {
+    type Item = EntryPath<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entry_release_path = self.state.next_entry_path(self.changelog)?;
+        Some(EntryPath {
+            changelog: self.changelog,
+            release_path: entry_release_path,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ChangelogEntryIterState<'a> {
+    Empty,
+    Unreleased(ChangeSetIter<'a>),
+    Released(ReleasesIter<'a>),
+}
+
+impl<'a> ChangelogEntryIterState<'a> {
+    fn next_entry_path(&mut self, changelog: &'a Changelog) -> Option<EntryReleasePath<'a>> {
+        match self {
+            Self::Empty => None,
+            Self::Unreleased(change_set_iter) => match change_set_iter.next() {
+                Some(entry_path) => Some(EntryReleasePath::Unreleased(entry_path)),
+                None => {
+                    *self = ChangelogEntryIterState::Released(ReleasesIter::new(changelog)?);
+                    self.next_entry_path(changelog)
+                }
+            },
+            Self::Released(releases_iter) => {
+                let (release, entry_path) = releases_iter.next()?;
+                Some(EntryReleasePath::Released(release, entry_path))
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ReleasesIter<'a> {
+    releases: &'a Vec<Release>,
+    id: usize,
+    // Change set iterator for the current release.
+    change_set_iter: ChangeSetIter<'a>,
+}
+
+impl<'a> ReleasesIter<'a> {
+    fn new(changelog: &'a Changelog) -> Option<Self> {
+        let releases = &changelog.releases;
+        let first_release = releases.get(0)?;
+        Some(Self {
+            releases,
+            id: 0,
+            change_set_iter: ChangeSetIter::new(&first_release.changes)?,
+        })
+    }
+}
+
+impl<'a> Iterator for ReleasesIter<'a> {
+    type Item = (&'a Release, EntryChangeSetPath<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut release = self.releases.get(self.id)?;
+        match self.change_set_iter.next() {
+            Some(entry_path) => Some((release, entry_path)),
+            None => {
+                let mut maybe_change_set_iter = None;
+                while maybe_change_set_iter.is_none() {
+                    self.id += 1;
+                    release = self.releases.get(self.id)?;
+                    maybe_change_set_iter = ChangeSetIter::new(&release.changes);
+                }
+                // Safety: the above while loop will cause the function to exit
+                // if we run out of releases. The while loop will only otherwise
+                // terminate and hit this line if
+                // maybe_change_set_iter.is_none() is false.
+                self.change_set_iter = maybe_change_set_iter.unwrap();
+                self.next()
+            }
+        }
     }
 }
 

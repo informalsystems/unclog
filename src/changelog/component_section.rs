@@ -8,7 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// A section of entries related to a specific component/submodule/package.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ComponentSection {
     /// The ID of the component.
     pub id: String,
@@ -81,6 +81,35 @@ impl ComponentSection {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ComponentSectionIter<'a> {
+    section: &'a ComponentSection,
+    entry_id: usize,
+}
+
+impl<'a> ComponentSectionIter<'a> {
+    pub(crate) fn new(section: &'a ComponentSection) -> Option<Self> {
+        if section.is_empty() {
+            None
+        } else {
+            Some(Self {
+                section,
+                entry_id: 0,
+            })
+        }
+    }
+}
+
+impl<'a> Iterator for ComponentSectionIter<'a> {
+    type Item = &'a Entry;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let entry = self.section.entries.get(self.entry_id)?;
+        self.entry_id += 1;
+        Some(entry)
+    }
+}
+
 pub(crate) fn package_section_filter(entry: fs::DirEntry) -> Option<Result<PathBuf>> {
     let meta = match entry.metadata() {
         Ok(m) => m,
@@ -133,14 +162,17 @@ mod test {
     fn test_entries() -> Vec<Entry> {
         vec![
             Entry {
+                filename: "1-issue.md".to_string(),
                 id: 1,
                 details: "- Issue 1".to_string(),
             },
             Entry {
+                filename: "2-issue.md".to_string(),
                 id: 2,
                 details: "- Issue 2".to_string(),
             },
             Entry {
+                filename: "3-issue.md".to_string(),
                 id: 3,
                 details: "- Issue 3".to_string(),
             },

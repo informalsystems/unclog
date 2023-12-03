@@ -1,12 +1,14 @@
 use crate::changelog::fs_utils::{read_and_filter_dir, read_to_string_opt};
 use crate::changelog::parsing_utils::trim_newlines;
-use crate::{ChangeSetSection, Config, Error, Result};
+use crate::{ChangeSetSection, Config, EntryChangeSetPath, Error, Result};
 use log::debug;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use super::change_set_section::ChangeSetSectionIter;
+
 /// A set of changes, either associated with a release or not.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ChangeSet {
     /// An optional high-level summary of the set of changes.
     pub maybe_summary: Option<String>,
@@ -73,6 +75,52 @@ impl ChangeSet {
             .filter(|s| !s.is_empty())
             .for_each(|s| paragraphs.push(s.render(config)));
         paragraphs.join("\n\n")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ChangeSetIter<'a> {
+    change_set: &'a ChangeSet,
+    section_id: usize,
+    section_iter: ChangeSetSectionIter<'a>,
+}
+
+impl<'a> ChangeSetIter<'a> {
+    pub(crate) fn new(change_set: &'a ChangeSet) -> Option<Self> {
+        let first_section = change_set.sections.get(0)?;
+        Some(Self {
+            change_set,
+            section_id: 0,
+            section_iter: ChangeSetSectionIter::new(first_section)?,
+        })
+    }
+}
+
+impl<'a> Iterator for ChangeSetIter<'a> {
+    type Item = EntryChangeSetPath<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let _ = self.change_set.sections.get(self.section_id)?;
+        match self.section_iter.next() {
+            Some(section_path) => Some(EntryChangeSetPath {
+                change_set: self.change_set,
+                section_path,
+            }),
+            None => {
+                let mut maybe_section_iter = None;
+                while maybe_section_iter.is_none() {
+                    self.section_id += 1;
+                    let section = self.change_set.sections.get(self.section_id)?;
+                    maybe_section_iter = ChangeSetSectionIter::new(section);
+                }
+                // Safety: the above while loop will cause the function to exit
+                // if we run out of sections. The while loop will only otherwise
+                // terminate and hit this line if maybe_section_iter.is_none()
+                // is false.
+                self.section_iter = maybe_section_iter.unwrap();
+                self.next()
+            }
+        }
     }
 }
 
