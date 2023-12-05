@@ -1,19 +1,5 @@
 # CHANGELOG
 
-## v0.7.1
-
-*Dec 5, 2023*
-
-A small release to improve the readability of the `find-duplicates` command's
-output.
-
-### ENHANCEMENTS
-
-- Condense `find-duplicates` output by not outputting `.changelog`
-  directory path by default. To include the `.changelog` folder path,
-  use the `--include-changelog-path` flag when calling `find-duplicates`
-  ([\#153](https://github.com/informalsystems/unclog/pull/153))
-
 ## v0.7.0
 
 *Dec 3, 2023*
