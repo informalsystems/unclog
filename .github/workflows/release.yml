@@ -1,3 +1,6 @@
+# Runs one last test prior to attempting to publish the crate to crates.io. If
+# the crate is published successfully, it creates a release and builds binaries
+# for macOS, Windows and Linux and attaches the binaries to the release.
 name: Release
 on:
   push:
@@ -5,7 +8,19 @@ on:
       - v[0-9]+.*
 
 jobs:
+  publish-to-cratesio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dtolnay/rust-toolchain@stable
+      # Last check prior to publishing
+      - run: cargo test --all-features
+      - run: cargo publish --token ${CRATES_TOKEN}
+        env:
+          CRATES_TOKEN: ${{ secrets.CRATES_TOKEN }}
+
   create-release:
+    needs: publish-to-cratesio
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -16,6 +31,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   upload-assets:
+    needs: publish-to-cratesio
     strategy:
       matrix:
         os:
