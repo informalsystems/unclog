@@ -123,6 +123,11 @@ enum Command {
     },
     /// Searches for duplicate entries across releases in this changelog.
     FindDuplicates {
+        /// Include the changelog path (usually ".changelog") in entry paths
+        /// when listing them.
+        #[arg(long)]
+        include_changelog_path: bool,
+
         /// The format to use when writing the duplicates to stdout.
         #[arg(value_enum, short, long, default_value = "simple")]
         format: DuplicatesOutputFormat,
@@ -245,7 +250,10 @@ fn main() {
                 &id,
             ),
         },
-        Command::FindDuplicates { format } => find_duplicates(&config, &opt.path, format),
+        Command::FindDuplicates {
+            include_changelog_path,
+            format,
+        } => find_duplicates(&config, &opt.path, include_changelog_path, format),
         Command::Release { editor, version } => {
             prepare_release(&config, &editor, &opt.path, &version)
         }
@@ -338,6 +346,7 @@ fn add_unreleased_entry_with_editor(
 fn find_duplicates(
     config: &Config,
     path: &Path,
+    include_changelog_path: bool,
     output_format: DuplicatesOutputFormat,
 ) -> Result<()> {
     let changelog = Changelog::read_from_dir(config, path)?;
@@ -354,10 +363,15 @@ fn find_duplicates(
         DuplicatesOutputFormat::AsciiTable => comfy_table::presets::ASCII_FULL,
     });
 
-    for (path_a, path_b) in dups {
+    for (entry_path_a, entry_path_b) in dups {
+        let base_path = if include_changelog_path {
+            path.to_owned()
+        } else {
+            PathBuf::new()
+        };
         table.add_row(vec![
-            path.join(path_a.as_path(config)).display(),
-            path.join(path_b.as_path(config)).display(),
+            base_path.join(entry_path_a.as_path(config)).display(),
+            base_path.join(entry_path_b.as_path(config)).display(),
         ]);
     }
     println!("{table}");
