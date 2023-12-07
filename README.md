@@ -26,7 +26,7 @@ being able to tailor content to each audience: Git commit histories for our
 
 ## Requirements
 
-- Tested using Rust v1.68+ with `cargo`
+- Tested using latest Rust stable
 - Git
 - Your project is hosted on GitHub or GitLab (for automatic changelog entry
   generation from the CLI)
