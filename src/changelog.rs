@@ -599,7 +599,7 @@ struct ReleasesIter<'a> {
 impl<'a> ReleasesIter<'a> {
     fn new(changelog: &'a Changelog) -> Option<Self> {
         let releases = &changelog.releases;
-        let first_release = releases.get(0)?;
+        let first_release = releases.first()?;
         Some(Self {
             releases,
             id: 0,
