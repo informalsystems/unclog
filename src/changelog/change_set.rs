@@ -87,7 +87,7 @@ pub struct ChangeSetIter<'a> {
 
 impl<'a> ChangeSetIter<'a> {
     pub(crate) fn new(change_set: &'a ChangeSet) -> Option<Self> {
-        let first_section = change_set.sections.get(0)?;
+        let first_section = change_set.sections.first()?;
         Some(Self {
             change_set,
             section_id: 0,
