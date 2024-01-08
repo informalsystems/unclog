@@ -25,7 +25,7 @@ cli = ["simplelog", "clap", "tempfile"]
 
 [dependencies]
 git2 = "0.18"
-handlebars = "4.5"
+handlebars = "5.0"
 log = "0.4"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
