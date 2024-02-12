@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.7.2
+
+*Feb 12, 2024*
+
+This release only provides a few dependency updates.
+
 ## v0.7.1
 
 *Dec 5, 2023*
