@@ -43,4 +43,4 @@ comfy-table = "7.1.1"
 
 [dev-dependencies]
 env_logger = "0.11"
-lazy_static = "1.4"
+lazy_static = "1.5"
