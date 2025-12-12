@@ -203,8 +203,7 @@ impl Config {
 }
 
 /// The various styles of bullets available in Markdown.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum BulletStyle {
     /// `*`
     Asterisk,
@@ -233,7 +232,6 @@ impl FromStr for BulletStyle {
         }
     }
 }
-
 
 impl Serialize for BulletStyle {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
