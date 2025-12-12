@@ -39,7 +39,7 @@ impl ComponentSection {
             .and_then(OsStr::to_str)
             .ok_or_else(|| Error::CannotObtainName(path_to_str(path)))?
             .to_owned();
-        debug!("Looking up component with ID: {}", id);
+        debug!("Looking up component with ID: {id}");
         let component = config
             .components
             .all
@@ -48,11 +48,10 @@ impl ComponentSection {
         let name = component.name.clone();
         let maybe_component_path = component.maybe_path.as_ref().map(path_to_str);
         match &maybe_component_path {
-            Some(component_path) => debug!(
-                "Found component \"{}\" with name \"{}\" in: {}",
-                id, name, component_path
-            ),
-            None => warn!("No path for component \"{}\"", id),
+            Some(component_path) => {
+                debug!("Found component \"{id}\" with name \"{name}\" in: {component_path}")
+            }
+            None => warn!("No path for component \"{id}\""),
         }
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
         let entries = read_entries_sorted(entry_files, config)?;

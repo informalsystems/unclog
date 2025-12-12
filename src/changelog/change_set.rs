@@ -20,7 +20,7 @@ impl ChangeSet {
     /// Returns true if this change set has no summary and no entries
     /// associated with it.
     pub fn is_empty(&self) -> bool {
-        self.maybe_summary.as_ref().map_or(true, String::is_empty) && self.are_sections_empty()
+        self.maybe_summary.as_ref().is_none_or(String::is_empty) && self.are_sections_empty()
     }
 
     /// Returns whether or not all the sections are empty.

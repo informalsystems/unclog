@@ -183,8 +183,8 @@ impl GenericProject for GitLabProject {
             "{}/{}",
             self,
             match platform_id {
-                PlatformId::Issue(no) => format!("-/issues/{}", no),
-                PlatformId::PullRequest(no) => format!("-/merge_requests/{}", no),
+                PlatformId::Issue(no) => format!("-/issues/{no}"),
+                PlatformId::PullRequest(no) => format!("-/merge_requests/{no}"),
             }
         ))?)
     }
@@ -195,8 +195,7 @@ impl GenericProject for GitLabProject {
 
     fn url(&self) -> Url {
         let url_str = self.url_str();
-        Url::parse(&url_str)
-            .unwrap_or_else(|e| panic!("failed to parse URL \"{}\": {}", url_str, e))
+        Url::parse(&url_str).unwrap_or_else(|e| panic!("failed to parse URL \"{url_str}\": {e}"))
     }
 }
 
@@ -245,9 +244,9 @@ pub fn from_git_repo(path: &Path, remote: &str) -> Result<Project> {
         .url()
         .map(String::from)
         .ok_or_else(|| Error::InvalidGitRemoteUrl(remote.to_owned(), path_to_str(path)))?;
-    debug!("Found Git remote \"{}\" URL: {}", remote, remote_url);
+    debug!("Found Git remote \"{remote}\" URL: {remote_url}");
     let remote_url = parse_url(&remote_url)?;
-    debug!("Parsed remote URL as: {}", remote_url.to_string());
+    debug!("Parsed remote URL as: {remote_url}");
 
     try_from(&remote_url)
 }

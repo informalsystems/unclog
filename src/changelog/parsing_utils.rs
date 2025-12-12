@@ -3,7 +3,7 @@
 use crate::error::Error;
 
 pub(crate) fn trim_newlines(s: &str) -> &str {
-    s.trim_end_matches(|c| c == '\n' || c == '\r')
+    s.trim_end_matches(['\n', '\r'])
 }
 
 pub(crate) fn extract_release_version(s: &str) -> crate::Result<&str> {

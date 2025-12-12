@@ -203,11 +203,12 @@ impl Config {
 }
 
 /// The various styles of bullets available in Markdown.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum BulletStyle {
     /// `*`
     Asterisk,
     /// `-`
+    #[default]
     Dash,
 }
 
@@ -229,12 +230,6 @@ impl FromStr for BulletStyle {
             "-" => Ok(Self::Dash),
             _ => Err(Error::InvalidBulletStyle),
         }
-    }
-}
-
-impl Default for BulletStyle {
-    fn default() -> Self {
-        Self::Dash
     }
 }
 
