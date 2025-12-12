@@ -259,7 +259,7 @@ fn main() {
         }
     };
     if let Err(e) = result {
-        error!("Failed: {}", e);
+        error!("Failed: {e}");
         std::process::exit(1);
     }
 }

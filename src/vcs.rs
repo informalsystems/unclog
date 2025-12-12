@@ -244,9 +244,9 @@ pub fn from_git_repo(path: &Path, remote: &str) -> Result<Project> {
         .url()
         .map(String::from)
         .ok_or_else(|| Error::InvalidGitRemoteUrl(remote.to_owned(), path_to_str(path)))?;
-    debug!("Found Git remote \"{}\" URL: {}", remote, remote_url);
+    debug!("Found Git remote \"{remote}\" URL: {remote_url}");
     let remote_url = parse_url(&remote_url)?;
-    debug!("Parsed remote URL as: {}", remote_url.to_string());
+    debug!("Parsed remote URL as: {}", remote_url);
 
     try_from(&remote_url)
 }

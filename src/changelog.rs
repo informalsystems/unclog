@@ -349,7 +349,7 @@ impl Changelog {
         let mut id = id.to_owned();
         if !id.starts_with(&format!("{}-", platform_id.id())) {
             id = format!("{}-{}", platform_id.id(), id);
-            debug!("Automatically prepending platform ID to change ID: {}", id);
+            debug!("Automatically prepending platform ID to change ID: {id}");
         }
         Self::add_unreleased_entry(config, path, section, component, &id, rendered_change)
     }
@@ -386,7 +386,7 @@ impl Changelog {
         );
         let change_template = fs_utils::read_to_string_opt(&change_template_file)?
             .unwrap_or_else(|| DEFAULT_CHANGE_TEMPLATE.to_owned());
-        debug!("Loaded change template:\n{}", change_template);
+        debug!("Loaded change template:\n{change_template}");
         let mut hb = handlebars::Handlebars::new();
         hb.register_template_string("change", change_template)
             .map_err(|e| Error::HandlebarsTemplateLoad(e.to_string()))?;
@@ -421,7 +421,7 @@ impl Changelog {
                 .word_separator(textwrap::WordSeparator::AsciiSpace),
         )
         .join("\n");
-        debug!("Rendered wrapped change:\n{}", wrapped_rendered);
+        debug!("Rendered wrapped change:\n{wrapped_rendered}");
         Ok(wrapped_rendered)
     }
 
