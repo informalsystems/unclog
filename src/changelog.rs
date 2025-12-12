@@ -59,10 +59,10 @@ impl Changelog {
     pub fn is_empty(&self) -> bool {
         self.maybe_unreleased
             .as_ref()
-            .map_or(true, ChangeSet::is_empty)
+            .is_none_or(ChangeSet::is_empty)
             && self.releases.iter().all(|r| r.changes.is_empty())
-            && self.prologue.as_ref().map_or(true, String::is_empty)
-            && self.epilogue.as_ref().map_or(true, String::is_empty)
+            && self.prologue.as_ref().is_none_or(String::is_empty)
+            && self.epilogue.as_ref().is_none_or(String::is_empty)
     }
 
     /// Renders the full changelog to a string.
