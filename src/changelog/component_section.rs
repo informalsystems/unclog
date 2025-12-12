@@ -48,9 +48,9 @@ impl ComponentSection {
         let name = component.name.clone();
         let maybe_component_path = component.maybe_path.as_ref().map(path_to_str);
         match &maybe_component_path {
-            Some(component_path) => debug!(
-                "Found component \"{id}\" with name \"{name}\" in: {component_path}"
-            ),
+            Some(component_path) => {
+                debug!("Found component \"{id}\" with name \"{name}\" in: {component_path}")
+            }
             None => warn!("No path for component \"{id}\""),
         }
         let entry_files = read_and_filter_dir(path, |e| entry_filter(config, e))?;
